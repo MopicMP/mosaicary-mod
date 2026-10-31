@@ -1,0 +1,29 @@
+{
+	"meta": { "format_version": "5.0", "model_format": "free", "box_uv": false },
+	"name": "one-cube",
+	"resolution": { "width": 16, "height": 16 },
+	"elements": [
+		{
+			"name": "cube",
+			"type": "cube",
+			"uuid": "cube-1",
+			"color": 2,
+			"from": [-4, 0, -4],
+			"to": [4, 8, 4],
+			"origin": [0, 0, 0],
+			"faces": {
+				"north": { "uv": [8, 8, 16, 16], "texture": 0, "rotation": 90 },
+				"east": { "uv": [0, 0, 8, 8] },
+				"south": { "uv": [0, 0, 8, 8], "texture": 0 },
+				"west": { "uv": [0, 0, 8, 8], "texture": 0 },
+				"up": { "uv": [0, 0, 8, 8], "texture": 0 },
+				"down": { "uv": [0, 0, 8, 8], "texture": null }
+			}
+		}
+	],
+	"outliner": ["cube-1"],
+	"textures": [
+		{ "name": "plain.png", "uuid": "tex-0", "width": 16, "height": 16, "uv_width": 16, "uv_height": 16 }
+	],
+	"animations": []
+}

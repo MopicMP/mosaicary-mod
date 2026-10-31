@@ -1,0 +1,39 @@
+{
+	"meta": { "format_version": "5.0", "model_format": "free", "box_uv": false },
+	"name": "mesh",
+	"resolution": { "width": 16, "height": 16 },
+	"elements": [
+		{
+			"name": "plane",
+			"type": "mesh",
+			"uuid": "m-1",
+			"origin": [0, 0, 0],
+			"rotation": [0, 0, 0],
+			"vertices": {
+				"a": [0, 0, 0],
+				"b": [4, 0, 0],
+				"c": [4, 0, 4],
+				"d": [0, 0, 4],
+				"e": [0, 4, 0]
+			},
+			"faces": {
+				"bowtie": {
+					"uv": { "a": [0, 0], "c": [4, 4], "b": [4, 0], "d": [0, 4] },
+					"vertices": ["a", "c", "b", "d"],
+					"texture": 0
+				},
+				"triangle": {
+					"uv": { "a": [0, 8], "b": [4, 8], "e": [0, 12] },
+					"vertices": ["a", "b", "e"],
+					"texture": 0
+				}
+			}
+		}
+	],
+	"outliner": [
+		{ "name": "m", "uuid": "g-m", "origin": [0, 0, 0], "children": ["m-1"] }
+	],
+	"textures": [
+		{ "name": "plain.png", "uuid": "tex-0", "width": 16, "height": 16, "uv_width": 16, "uv_height": 16 }
+	]
+}

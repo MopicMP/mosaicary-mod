@@ -1,0 +1,81 @@
+{
+	"meta": { "format_version": "5.0", "model_format": "free", "box_uv": false },
+	"name": "bones",
+	"resolution": { "width": 16, "height": 16 },
+	"elements": [
+		{
+			"name": "torso",
+			"type": "cube",
+			"uuid": "e-torso",
+			"from": [-4, 12, -2],
+			"to": [4, 24, 2],
+			"origin": [0, 12, 0],
+			"faces": {
+				"north": { "uv": [0, 0, 8, 12], "texture": 0 },
+				"east": { "uv": [0, 0, 4, 12], "texture": 0 },
+				"south": { "uv": [0, 0, 8, 12], "texture": 0 },
+				"west": { "uv": [0, 0, 4, 12], "texture": 0 },
+				"up": { "uv": [0, 0, 8, 4], "texture": 0 },
+				"down": { "uv": [0, 0, 8, 4], "texture": 0 }
+			}
+		},
+		{
+			"name": "arm-cube",
+			"type": "cube",
+			"uuid": "e-arm",
+			"from": [4, 12, -1],
+			"to": [6, 22, 1],
+			"origin": [4, 22, 0],
+			"faces": {
+				"north": { "uv": [0, 0, 2, 10], "texture": 0 },
+				"east": { "uv": [0, 0, 2, 10], "texture": 0 },
+				"south": { "uv": [0, 0, 2, 10], "texture": 0 },
+				"west": { "uv": [0, 0, 2, 10], "texture": 0 },
+				"up": { "uv": [0, 0, 2, 2], "texture": 0 },
+				"down": { "uv": [0, 0, 2, 2], "texture": 0 }
+			}
+		},
+		{
+			"name": "hand-cube",
+			"type": "cube",
+			"uuid": "e-hand",
+			"from": [4, 10, -1],
+			"to": [6, 12, 1],
+			"origin": [5, 12, 0],
+			"faces": {
+				"north": { "uv": [0, 0, 2, 2], "texture": 0 },
+				"east": { "uv": [0, 0, 2, 2], "texture": 0 },
+				"south": { "uv": [0, 0, 2, 2], "texture": 0 },
+				"west": { "uv": [0, 0, 2, 2], "texture": 0 },
+				"up": { "uv": [0, 0, 2, 2], "texture": 0 },
+				"down": { "uv": [0, 0, 2, 2], "texture": 0 }
+			}
+		}
+	],
+	"groups": [
+		{ "name": "body", "uuid": "g-body", "origin": [0, 12, 0], "rotation": [0, 0, 0], "visibility": true },
+		{ "name": "arm", "uuid": "g-arm", "origin": [4, 22, 0], "rotation": [0, 0, 90], "visibility": true },
+		{ "name": "hand", "uuid": "g-hand", "origin": [5, 12, 0], "rotation": [0, 0, 0], "visibility": false }
+	],
+	"outliner": [
+		{
+			"uuid": "g-body",
+			"isOpen": true,
+			"children": [
+				"e-torso",
+				{
+					"uuid": "g-arm",
+					"isOpen": true,
+					"children": [
+						"e-arm",
+						{ "uuid": "g-hand", "isOpen": true, "children": ["e-hand"] }
+					]
+				}
+			]
+		}
+	],
+	"textures": [
+		{ "name": "plain.png", "uuid": "tex-0", "width": 16, "height": 16, "uv_width": 16, "uv_height": 16 }
+	],
+	"animations": [ { "name": "wave", "uuid": "a-1", "length": 1 } ]
+}

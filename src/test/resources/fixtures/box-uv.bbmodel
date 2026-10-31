@@ -1,0 +1,49 @@
+{
+	"meta": { "format_version": "4.10", "model_format": "bedrock", "box_uv": true },
+	"name": "box-uv",
+	"resolution": { "width": 64, "height": 32 },
+	"elements": [
+		{
+			"name": "plain-cube",
+			"type": "cube",
+			"uuid": "c-plain",
+			"from": [0, 0, 0],
+			"to": [4, 6, 2],
+			"origin": [0, 0, 0],
+			"uv_offset": [10, 20],
+			"faces": {
+				"north": { "uv": [0, 0, 0, 0], "texture": 0 },
+				"east": { "uv": [0, 0, 0, 0], "texture": 0 },
+				"south": { "uv": [0, 0, 0, 0], "texture": 0 },
+				"west": { "uv": [0, 0, 0, 0], "texture": 0 },
+				"up": { "uv": [0, 0, 0, 0], "texture": 0 },
+				"down": { "uv": [0, 0, 0, 0], "texture": 0 }
+			}
+		},
+		{
+			"name": "mirrored-cube",
+			"type": "cube",
+			"uuid": "c-mirrored",
+			"from": [10, 0, 0],
+			"to": [14, 6, 2],
+			"origin": [10, 0, 0],
+			"uv_offset": [0, 0],
+			"mirror_uv": true,
+			"faces": {
+				"north": { "uv": [0, 0, 0, 0], "texture": 0 },
+				"east": { "uv": [0, 0, 0, 0], "texture": 0 },
+				"south": { "uv": [0, 0, 0, 0], "texture": 0 },
+				"west": { "uv": [0, 0, 0, 0], "texture": 0 },
+				"up": { "uv": [0, 0, 0, 0], "texture": 0 },
+				"down": { "uv": [0, 0, 0, 0], "texture": 0 }
+			}
+		}
+	],
+	"outliner": [
+		{ "name": "plain", "uuid": "g-plain", "origin": [0, 0, 0], "children": ["c-plain"] },
+		{ "name": "mirrored", "uuid": "g-mirrored", "origin": [10, 0, 0], "children": ["c-mirrored"] }
+	],
+	"textures": [
+		{ "name": "skin.png", "uuid": "tex-0", "width": 64, "height": 32 }
+	]
+}

@@ -1,0 +1,42 @@
+{
+	"schemaVersion": 1,
+	"id": "mosaicary",
+	"version": "${version}",
+	"name": "Mosaicary",
+	"description": "A skin wardrobe in game: browse the skins of mosaicary.com, see them on the player model, put them on your account and keep your own in My skins, kept in step with mosaicary.com and with servers that have the mod.",
+	"authors": [
+		"MopicMP"
+	],
+	"contact": {
+		"homepage": "https://mosaicary.com",
+		"sources": "https://github.com/MopicMP/mosaicary-mod",
+		"issues": "https://github.com/MopicMP/mosaicary-mod/issues"
+	},
+	"license": "All-Rights-Reserved",
+	"icon": "assets/mosaicary/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.mopicmp.mosaicary.Mosaicary"
+		],
+		"client": [
+			"com.mopicmp.mosaicary.client.MosaicaryClient"
+		],
+		"modmenu": [
+			"com.mopicmp.mosaicary.client.compat.ModMenuEntry"
+		]
+	},
+	"mixins": [
+		"mosaicary.mixins.json",
+		{
+			"config": "mosaicary.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~26.3",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}

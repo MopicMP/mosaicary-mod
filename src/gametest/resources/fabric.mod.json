@@ -1,0 +1,23 @@
+{
+	"schemaVersion": 1,
+	"id": "mosaicary-gametest",
+	"version": "1.0.0",
+	"name": "Mosaicary client game test",
+	"description": "Drives the Mosaicary catalogue with real input in a running game. Development only.",
+	"license": "All rights reserved",
+	"environment": "client",
+	"entrypoints": {
+		"fabric-client-gametest": [
+			"com.mopicmp.mosaicary.gametest.LanguagesGameTest",
+			"com.mopicmp.mosaicary.gametest.MenuSkinGameTest",
+			"com.mopicmp.mosaicary.gametest.EyesGameTest",
+			"com.mopicmp.mosaicary.gametest.AccountGameTest",
+			"com.mopicmp.mosaicary.gametest.WearGameTest",
+			"com.mopicmp.mosaicary.gametest.CatalogueGameTest",
+			"com.mopicmp.mosaicary.gametest.BuildsGameTest"
+		]
+	},
+	"depends": {
+		"mosaicary": "*"
+	}
+}

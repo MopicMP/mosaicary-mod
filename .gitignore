@@ -1,0 +1,18 @@
+# Gradle and Loom
+.gradle/
+build/
+out/
+bin/
+
+# Game runs
+run/
+run2/
+run-server/
+logs/
+
+# Editors
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws

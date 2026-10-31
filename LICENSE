@@ -1,0 +1,58 @@
+Mosaicary
+
+Copyright (c) 2026 MopicMP. All rights reserved, except as stated below.
+
+The source code is public so that it can be read and checked. Publishing it here
+does not make it free or open source software.
+
+
+1. WHAT YOU MAY DO
+
+  (a) Read the source code.
+
+  (b) Build the mod from the source code and run it yourself, changed or not, for
+      your own personal use.
+
+  (c) Prepare changes to offer back to this project through its repository.
+
+  (d) Use the mod as released by the author on your own computer and show it in
+      videos, streams and screenshots.
+
+  (e) Point to the author's own download pages on CurseForge and Modrinth, for
+      example from a modpack that fetches the mod from those pages. That is not
+      redistribution, as long as the file itself is not copied into the pack.
+
+
+2. WHAT YOU MAY NOT DO WITHOUT WRITTEN PERMISSION
+
+  (a) Publish, upload, sell or otherwise redistribute the mod or its source code,
+      changed or not, on CurseForge, Modrinth or anywhere else.
+
+  (b) Publish a project made from this one, or a part of it, under any name.
+
+  (c) Use the name Mosaicary or its icon for another project.
+
+
+3. WHAT IS NOT COVERED
+
+The jar includes TwelveMonkeys ImageIO, which stays under its own BSD licence.
+
+Skins in the catalogue belong to their authors and are not part of this licence.
+
+Minecraft is a trademark of Mojang. This project is not an official Minecraft
+product and is not approved by or associated with Mojang or Microsoft.
+
+
+4. NO WARRANTY
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHOR BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
+5. CONTACT
+
+For permission or questions: contact@mosaicary.com

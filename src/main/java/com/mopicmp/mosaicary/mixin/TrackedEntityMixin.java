@@ -1,0 +1,40 @@
+package com.mopicmp.mosaicary.mixin;
+
+import java.util.List;
+import java.util.Set;
+
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+
+import com.mopicmp.mosaicary.server.ServerWardrobes;
+
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.ServerPlayerConnection;
+
+/**
+ * Takes an entity out of every watcher's view and puts it straight back, which sends each
+ * of them the entity anew: for a player, with the profile, and so the skin, it has now.
+ */
+@Mixin(targets = "net.minecraft.server.level.ChunkMap$TrackedEntity")
+public abstract class TrackedEntityMixin implements ServerWardrobes.Retrack {
+
+	@Shadow
+	@Final
+	private Set<ServerPlayerConnection> seenBy;
+
+	@Shadow
+	public abstract void removePlayer(ServerPlayer player);
+
+	@Shadow
+	public abstract void updatePlayer(ServerPlayer player);
+
+	@Override
+	public void mosaicary$showAgain() {
+		for (ServerPlayerConnection watcher : List.copyOf(seenBy)) {
+			ServerPlayer player = watcher.getPlayer();
+			removePlayer(player);
+			updatePlayer(player);
+		}
+	}
+}

@@ -64,6 +64,8 @@ The source also holds parts this release keeps hidden: worn 3D models and a quic
 
 All rights reserved. You may read the source and build it for yourself; publishing it is not allowed. The full terms are in [LICENSE](LICENSE). To ask about anything else: contact@mosaicary.com.
 
+The hat on the mod's icon is "[Fancy Hat [ minecraft style ]](https://sketchfab.com/3d-models/fancy-hat-minecraft-style-b0f3fade197b44119939bd324c944a7a)" by [LepikGem](https://sketchfab.com/LepikGem), under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), put on the author's own model and rendered as the icon.
+
 Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.
 
 ---
@@ -116,5 +118,7 @@ Not an official Minecraft product. Not approved by or associated with Mojang or 
 ## Лицензия
 
 Все права защищены. Код можно читать и собирать для себя, выкладывать нельзя. Полный текст в [LICENSE](LICENSE). С другими вопросами: contact@mosaicary.com.
+
+Шляпа на иконке мода — «[Fancy Hat [ minecraft style ]](https://sketchfab.com/3d-models/fancy-hat-minecraft-style-b0f3fade197b44119939bd324c944a7a)» от [LepikGem](https://sketchfab.com/LepikGem), лицензия [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); она надета на собственную модель автора мода и отрисована как иконка.
 
 Это не официальный продукт Minecraft. Проект не одобрен Mojang или Microsoft и не связан с ними.

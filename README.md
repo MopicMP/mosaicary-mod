@@ -4,6 +4,8 @@ A skin wardrobe for Minecraft. Browse the skin catalogue of [mosaicary.com](http
 
 For **Fabric**, Minecraft 26.3. [Русский](#русский)
 
+**Download:** [CurseForge](https://www.curseforge.com/minecraft/mc-mods/mosaicary)
+
 ![The skin catalogue in the game](docs/images/catalogue.png)
 
 > **Please do not upload this mod to CurseForge, Modrinth or anywhere else under your own name.** The licence forbids it, for the mod as it is and for a changed version: see [LICENSE](LICENSE).
@@ -75,6 +77,8 @@ Not an official Minecraft product. Not approved by or associated with Mojang or 
 Гардероб скинов для Minecraft. Каталог скинов с [mosaicary.com](https://mosaicary.com) прямо в игре: посмотреть скин на модели игрока и надеть его одним нажатием.
 
 Для **Fabric**, Minecraft 26.3.
+
+**Скачать:** [CurseForge](https://www.curseforge.com/minecraft/mc-mods/mosaicary)
 
 > **Пожалуйста, не выкладывайте этот мод на CurseForge, Modrinth и куда-либо ещё под своим именем.** Лицензия запрещает это и для самого мода, и для изменённой версии: см. [LICENSE](LICENSE).
 

@@ -1,0 +1,35 @@
+modLoader = "javafml"
+loaderVersion = "[1,)"
+license = "All-Rights-Reserved"
+issueTrackerURL = "https://github.com/MopicMP/mosaicary-mod/issues"
+
+[[mods]]
+modId = "mosaicary"
+version = "${version}"
+displayName = "Mosaicary"
+displayURL = "https://mosaicary.com"
+iconFile = "assets/mosaicary/icon.png"
+authors = "MopicMP"
+description = '''
+A skin wardrobe in game: browse the skins of mosaicary.com, see them on the player model, put them on your account and keep your own in My skins, kept in step with mosaicary.com and with servers that have the mod.
+'''
+
+[[mixins]]
+config = "mosaicary.mixins.json"
+
+[[mixins]]
+config = "mosaicary.client.mixins.json"
+
+[[dependencies.mosaicary]]
+modId = "neoforge"
+type = "required"
+versionRange = "[26.3,)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.mosaicary]]
+modId = "minecraft"
+type = "required"
+versionRange = "[${mcVersionStr},@MC_NEXT@)"
+ordering = "NONE"
+side = "BOTH"

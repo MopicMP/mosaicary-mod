@@ -5,7 +5,7 @@ import java.util.UUID;
 import com.mopicmp.mosaicary.Mosaicary;
 
 import io.netty.buffer.ByteBuf;
-import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
+import com.mopicmp.mosaicary.platform.Platform;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
@@ -77,9 +77,9 @@ public final class MosaicaryPayloads {
 	}
 
 	public static void register() {
-		PayloadTypeRegistry.clientboundPlay().register(Hello.TYPE, Hello.CODEC);
-		PayloadTypeRegistry.clientboundPlay().register(WardrobeState.TYPE, WardrobeState.CODEC);
-		PayloadTypeRegistry.serverboundPlay().register(WardrobeState.TYPE, WardrobeState.CODEC);
-		PayloadTypeRegistry.serverboundPlay().register(SkinChanged.TYPE, SkinChanged.CODEC);
+		Platform.toClient(Hello.TYPE, Hello.CODEC);
+		Platform.toClient(WardrobeState.TYPE, WardrobeState.CODEC);
+		Platform.toServer(WardrobeState.TYPE, WardrobeState.CODEC);
+		Platform.toServer(SkinChanged.TYPE, SkinChanged.CODEC);
 	}
 }

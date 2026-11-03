@@ -1,3 +1,4 @@
+//#if FABRIC>=1
 package com.mopicmp.mosaicary.client.compat;
 
 import com.mopicmp.mosaicary.client.ui.SettingsScreen;
@@ -17,3 +18,4 @@ public final class ModMenuEntry implements ModMenuApi {
 		return SettingsScreen::new;
 	}
 }
+//#endif

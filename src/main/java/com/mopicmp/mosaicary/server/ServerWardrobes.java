@@ -28,11 +28,9 @@ import com.mojang.authlib.properties.Property;
 import com.mojang.authlib.properties.PropertyMap;
 import com.mopicmp.mosaicary.Mosaicary;
 import com.mopicmp.mosaicary.net.MosaicaryPayloads;
+import com.mopicmp.mosaicary.platform.Platform;
 import com.mopicmp.mosaicary.wardrobe.Wardrobe;
 
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
 import net.minecraft.server.MinecraftServer;
@@ -83,21 +81,21 @@ public final class ServerWardrobes {
 	private ServerWardrobes() { }
 
 	public static void init() {
-		ServerLifecycleEvents.SERVER_STARTED.register(server -> start());
-		ServerLifecycleEvents.SERVER_STOPPING.register(server -> stop());
-		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
-			if (ServerPlayNetworking.canSend(handler.getPlayer(), MosaicaryPayloads.Hello.TYPE)) {
-				ServerPlayNetworking.send(handler.getPlayer(), new MosaicaryPayloads.Hello(MosaicaryPayloads.VERSION));
+		Platform.onServerStarted(server -> start());
+		Platform.onServerStopping(server -> stop());
+		Platform.onPlayerJoin(player -> {
+			if (Platform.canSend(player, MosaicaryPayloads.Hello.TYPE)) {
+				Platform.send(player, new MosaicaryPayloads.Hello(MosaicaryPayloads.VERSION));
 			}
 		});
-		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
-			lastWardrobe.remove(handler.getPlayer().getUUID());
-			lastSkin.remove(handler.getPlayer().getUUID());
+		Platform.onPlayerLeave(player -> {
+			lastWardrobe.remove(player.getUUID());
+			lastSkin.remove(player.getUUID());
 		});
-		ServerPlayNetworking.registerGlobalReceiver(MosaicaryPayloads.WardrobeState.TYPE,
-			(payload, context) -> wardrobe(context.server(), context.player(), payload.json()));
-		ServerPlayNetworking.registerGlobalReceiver(MosaicaryPayloads.SkinChanged.TYPE,
-			(payload, context) -> skinChanged(context.server(), context.player(), payload.account(), payload.texture()));
+		Platform.onServerReceive(MosaicaryPayloads.WardrobeState.TYPE,
+			(player, payload) -> wardrobe(player.level().getServer(), player, payload.json()));
+		Platform.onServerReceive(MosaicaryPayloads.SkinChanged.TYPE,
+			(player, payload) -> skinChanged(player.level().getServer(), player, payload.account(), payload.texture()));
 	}
 
 	private static synchronized void start() {
@@ -126,7 +124,7 @@ public final class ServerWardrobes {
 
 	// ------------------------------------------------------------------ the wardrobe
 
-	/** On the server thread, as Fabric hands play payloads to the server's own thread. */
+	/** On the server thread, where the loaders hand play packets. */
 	private static void wardrobe(MinecraftServer server, ServerPlayer player, String json) {
 		long now = System.currentTimeMillis();
 		Long last = lastWardrobe.get(player.getUUID());
@@ -135,7 +133,7 @@ public final class ServerWardrobes {
 		Wardrobe kept = new Wardrobe(folder(server), player.getUUID().toString());
 		kept.mergeIn(Wardrobe.fromJson(json), now);
 		kept.save();
-		ServerPlayNetworking.send(player, new MosaicaryPayloads.WardrobeState(kept.travellingJson()));
+		Platform.send(player, new MosaicaryPayloads.WardrobeState(kept.travellingJson()));
 	}
 
 	// ------------------------------------------------------------------ a changed skin

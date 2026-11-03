@@ -2,7 +2,7 @@
 
 A skin wardrobe for Minecraft. Browse the skin catalogue of [mosaicary.com](https://mosaicary.com) in the game, see each skin on the player model, and wear it in one click.
 
-For **Fabric**, Minecraft 26.3. [Русский](#русский)
+For **Fabric** and **NeoForge**, Minecraft 26.3. [Русский](#русский)
 
 **Download:** [CurseForge](https://www.curseforge.com/minecraft/mc-mods/mosaicary)
 
@@ -31,11 +31,13 @@ For **Fabric**, Minecraft 26.3. [Русский](#русский)
 ## Requirements
 
 - Minecraft 26.3
-- Fabric Loader 0.19.5 or newer
-- Fabric API
 - Java 25
+- On Fabric: Fabric Loader 0.19.5 or newer and Fabric API
+- On NeoForge: NeoForge for 26.3
 
-Optional: [Mod Menu](https://modrinth.com/mod/modmenu), for the settings button in its list, and the three projects under Live eyes above. The mod works without them, in single player and on any server. The server does not need it.
+Each loader has its own file; take the one for yours.
+
+Optional: on Fabric, [Mod Menu](https://modrinth.com/mod/modmenu), for the settings button in its list (on NeoForge the settings open from the Config button in the mod list), and the three projects under Live eyes above. The mod works without them, in single player and on any server. The server does not need it.
 
 The mod's interface is translated into English, Russian, German, Spanish, French, Italian, Japanese, Korean, Dutch, Polish, Brazilian Portuguese, Turkish, Ukrainian and Simplified Chinese.
 
@@ -51,11 +53,11 @@ You need JDK 25; Gradle finds it by itself once it is installed.
 ./gradlew build
 ```
 
-The jar lands in `build/libs/`.
+The jars land in `versions/26.3-fabric/build/libs/` and `versions/26.3-neoforge/build/libs/`. Both are built from the one source in `src/`: lines marked `//#if FABRIC` or `//#if NEOFORGE` are kept for one loader only.
 
 ```
 ./gradlew test
-./gradlew runClientGameTest
+./gradlew :26.3-fabric:runClientGameTest
 ```
 
 The first runs the tests that need no game. The second starts the game and drives it with real input, and it needs a connection to mosaicary.com for the catalogue.
@@ -76,7 +78,7 @@ Not an official Minecraft product. Not approved by or associated with Mojang or 
 
 Гардероб скинов для Minecraft. Каталог скинов с [mosaicary.com](https://mosaicary.com) прямо в игре: посмотреть скин на модели игрока и надеть его одним нажатием.
 
-Для **Fabric**, Minecraft 26.3.
+Для **Fabric** и **NeoForge**, Minecraft 26.3.
 
 **Скачать:** [CurseForge](https://www.curseforge.com/minecraft/mc-mods/mosaicary)
 
@@ -97,11 +99,13 @@ Not an official Minecraft product. Not approved by or associated with Mojang or 
 ## Что нужно
 
 - Minecraft 26.3
-- Fabric Loader 0.19.5 или новее
-- Fabric API
 - Java 25
+- На Fabric: Fabric Loader 0.19.5 или новее и Fabric API
+- На NeoForge: NeoForge для 26.3
 
-Необязательно: [Mod Menu](https://modrinth.com/mod/modmenu), чтобы открывать настройки из его списка, и три проекта из пункта про живые глаза. Мод работает и без них, в одиночной игре и на любом сервере. Серверу мод не нужен.
+У каждого загрузчика свой файл, берите тот, что для вашего.
+
+Необязательно: на Fabric — [Mod Menu](https://modrinth.com/mod/modmenu), чтобы открывать настройки из его списка (на NeoForge они открываются кнопкой Config в списке модов), и три проекта из пункта про живые глаза. Мод работает и без них, в одиночной игре и на любом сервере. Серверу мод не нужен.
 
 Интерфейс мода переведён на английский, русский, немецкий, испанский, французский, итальянский, японский, корейский, нидерландский, польский, бразильский португальский, турецкий, украинский и упрощённый китайский.
 
@@ -117,7 +121,7 @@ Not an official Minecraft product. Not approved by or associated with Mojang or 
 ./gradlew build
 ```
 
-Готовый файл появится в `build/libs/`.
+Готовые файлы появятся в `versions/26.3-fabric/build/libs/` и `versions/26.3-neoforge/build/libs/`. Оба собираются из одного кода в `src/`: строки с пометкой `//#if FABRIC` или `//#if NEOFORGE` остаются только для своего загрузчика.
 
 ## Лицензия
 

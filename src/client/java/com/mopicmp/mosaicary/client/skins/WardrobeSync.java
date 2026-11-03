@@ -15,7 +15,7 @@ import com.mopicmp.mosaicary.client.wear.WearRelay;
 import com.mopicmp.mosaicary.net.MosaicaryPayloads;
 import com.mopicmp.mosaicary.wardrobe.Wardrobe;
 
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import com.mopicmp.mosaicary.client.platform.ClientPlatform;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
@@ -360,11 +360,11 @@ public final class WardrobeSync {
 	}
 
 	private void syncServer() {
-		if (!serverKeeps || !ClientPlayNetworking.canSend(MosaicaryPayloads.WardrobeState.TYPE)) return;
+		if (!serverKeeps || !ClientPlatform.canSend(MosaicaryPayloads.WardrobeState.TYPE)) return;
 		String json = skins.wardrobe().travellingJson();
 		if (json.length() > MosaicaryPayloads.WARDROBE_MOST) return;
 		standing.get(Where.SERVER).busy = true;
-		ClientPlayNetworking.send(new MosaicaryPayloads.WardrobeState(json));
+		ClientPlatform.send(new MosaicaryPayloads.WardrobeState(json));
 	}
 
 	/** The server's answer: the wardrobe brought together. */

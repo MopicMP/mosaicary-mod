@@ -190,8 +190,100 @@ public final class SkinsScreen extends Screen {
 		return out;
 	}
 
-	/** The yellow card's place: right of the figure in the preview, or a strip over the grid. */
-	private record Notice(int x0, int y0, int x1, int y1, List<FormattedCharSequence> lines) { }
+	/**
+	 * A card's place and the lines it shows. {@code whole} is all of its text, for the tooltip of a
+	 * card cut short ({@code cut}) because the panel has no room for all of it.
+	 */
+	private record Notice(int x0, int y0, int x1, int y1, List<FormattedCharSequence> lines, List<Component> whole, boolean cut) { }
+
+	/** The cards in the description panel, in the order {@link #cardLines} counts them. */
+	private static final int FRESH_CARD = 0;
+	private static final int SEE_THROUGH_CARD = 1;
+	private static final int ACCOUNT_CARD = 2;
+
+	/** The panel's top for the cards: under the author and licence, which stay in sight. */
+	private int cardsCeiling(Detail layout) {
+		int rows = openCard != null ? 2 : 1;
+		return layout.infoY0 + 6 + rows * (Icons.SIZE + 3) + 5;
+	}
+
+	/** The width the words of a card in the description panel have, beside its icon. */
+	private int cardTextWidth(Detail layout) {
+		return layout.infoX1 - layout.infoX0 - 12 - 12 - Icons.SIZE - 4;
+	}
+
+	/**
+	 * How many lines of words each card in the description panel shows: all of them when the panel
+	 * has the room, and otherwise the card with the most lines gives one up at a time, down to one
+	 * line each, until the cards fit between the author and licence and the buttons.
+	 */
+	private int[] cardLines() {
+		Detail layout = detailLayout();
+		int width = cardTextWidth(layout);
+		int[] lines = new int[3];
+		int[] fixed = new int[3];
+		boolean[] shown = new boolean[3];
+		if (freshShown != null) {
+			shown[FRESH_CARD] = true;
+			for (Component line : freshLines(freshShown)) lines[FRESH_CARD] += font.split(line, width).size();
+			fixed[FRESH_CARD] = 6 + 6 + freshActions(freshShown).size() * (ROW + 3) + 3;
+		}
+		Skins.Look look = skins.look(entry());
+		if (look != null && look.seeThrough()) {
+			shown[SEE_THROUGH_CARD] = true;
+			lines[SEE_THROUGH_CARD] = font.split(Component.translatable("mosaicary.skins.see_through"), width).size();
+			fixed[SEE_THROUGH_CARD] = 6 + 6;
+		}
+		Component said = accountSaid();
+		if (said != null) {
+			shown[ACCOUNT_CARD] = true;
+			lines[ACCOUNT_CARD] = font.split(said, width).size();
+			fixed[ACCOUNT_CARD] = 6 + 4 + ROW + 4;
+		}
+		int room = layout.infoY1 - 6 - ROW - 6 - cardsCeiling(layout);
+		while (stackHeight(lines, fixed, shown) > room) {
+			int longest = -1;
+			for (int i = 0; i < 3; i++) {
+				if (shown[i] && lines[i] > 1 && (longest < 0 || lines[i] > lines[longest])) longest = i;
+			}
+			if (longest < 0) break;
+			lines[longest]--;
+		}
+		return lines;
+	}
+
+	private static int stackHeight(int[] lines, int[] fixed, boolean[] shown) {
+		int total = 0;
+		int cards = 0;
+		for (int i = 0; i < 3; i++) {
+			if (!shown[i]) continue;
+			total += fixed[i] + Math.max(Icons.SIZE, lines[i] * 10);
+			cards++;
+		}
+		return total + Math.max(0, cards - 1) * 3;
+	}
+
+	/** The lines of a card's words, at most {@code keep} of them; when cut, the last one ends in "...". */
+	private List<FormattedCharSequence> fitted(List<Component> words, int width, int keep) {
+		List<FormattedCharSequence> all = new ArrayList<>();
+		for (Component line : words) all.addAll(font.split(line, width));
+		if (all.size() <= keep) return all;
+		List<FormattedCharSequence> narrower = new ArrayList<>();
+		for (Component line : words) narrower.addAll(font.split(line, width - font.width("...")));
+		List<FormattedCharSequence> cut = new ArrayList<>(narrower.subList(0, Math.max(1, keep)));
+		int last = cut.size() - 1;
+		cut.set(last, FormattedCharSequence.composite(cut.get(last), FormattedCharSequence.forward("...", Style.EMPTY)));
+		return cut;
+	}
+
+	/** The whole of a card's words over it while the pointer is on its words, when they were cut. */
+	private void cutTooltip(GuiGraphicsExtractor graphics, Notice card, int mouseX, int mouseY) {
+		int textBottom = card.y0() + 7 + Math.max(Icons.SIZE, card.lines().size() * 10);
+		if (!card.cut() || mouseX < card.x0() || mouseX >= card.x1() || mouseY < card.y0() || mouseY >= textBottom) return;
+		List<FormattedCharSequence> all = new ArrayList<>();
+		for (Component line : card.whole()) all.addAll(font.split(line, 200));
+		graphics.setTooltipForNextFrame(font, all, mouseX, mouseY);
+	}
 
 	private static final int NOTICE_STRIP = ROW + 8;
 
@@ -203,17 +295,18 @@ public final class SkinsScreen extends Screen {
 			Detail layout = detailLayout();
 			int x0 = layout.infoX0 + 6;
 			int x1 = layout.infoX1 - 6;
-			List<FormattedCharSequence> lines = new ArrayList<>();
-			for (Component line : said) lines.addAll(font.split(line, x1 - x0 - 12 - Icons.SIZE - 4));
+			int keep = cardLines()[FRESH_CARD];
+			List<FormattedCharSequence> lines = fitted(said, cardTextWidth(layout), keep);
+			boolean cut = fitted(said, cardTextWidth(layout), Integer.MAX_VALUE).size() > keep;
 			int buttons = freshActions(status).size();
 			int y1 = layout.infoY1 - 6 - ROW - 6;
 			int y0 = y1 - (6 + Math.max(Icons.SIZE, lines.size() * 10) + 6 + buttons * (ROW + 3) + 3);
-			return new Notice(x0, y0, x1, y1, lines);
+			return new Notice(x0, y0, x1, y1, lines, said, cut);
 		}
 		int y0 = secondRowY() + ROW + GAP;
 		List<FormattedCharSequence> lines = new ArrayList<>();
 		for (Component line : said) lines.add(line.getVisualOrderText());
-		return new Notice(MARGIN, y0, width - MARGIN, y0 + NOTICE_STRIP, lines);
+		return new Notice(MARGIN, y0, width - MARGIN, y0 + NOTICE_STRIP, lines, said, false);
 	}
 
 	/** The buttons of the yellow card, made with the other widgets. */
@@ -260,6 +353,7 @@ public final class SkinsScreen extends Screen {
 				graphics.text(font, line, textX, y, Theme.WARN, false);
 				y += 10;
 			}
+			cutTooltip(graphics, place, mouseX, mouseY);
 			return;
 		}
 		// The strip: the first line as fits, the whole of it in the tooltip.
@@ -285,13 +379,16 @@ public final class SkinsScreen extends Screen {
 		Notice below = notice(freshShown);
 		int x0 = layout.infoX0 + 6;
 		int x1 = layout.infoX1 - 6;
-		List<FormattedCharSequence> lines = font.split(Component.translatable("mosaicary.skins.see_through"), x1 - x0 - 12 - Icons.SIZE - 4);
+		List<Component> words = List.of(Component.translatable("mosaicary.skins.see_through"));
+		int keep = cardLines()[SEE_THROUGH_CARD];
+		List<FormattedCharSequence> lines = fitted(words, cardTextWidth(layout), keep);
+		boolean cut = fitted(words, cardTextWidth(layout), Integer.MAX_VALUE).size() > keep;
 		int y1 = below != null ? below.y0() - 3 : layout.infoY1 - 6 - ROW - 6;
 		int y0 = y1 - (6 + Math.max(Icons.SIZE, lines.size() * 10) + 6);
-		return new Notice(x0, y0, x1, y1, lines);
+		return new Notice(x0, y0, x1, y1, lines, words, cut);
 	}
 
-	private void drawSeeThrough(GuiGraphicsExtractor graphics) {
+	private void drawSeeThrough(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
 		Notice place = seeThroughCard();
 		if (place == null) return;
 		Theme.card(graphics, place.x0(), place.y0(), place.x1(), place.y1(), 0xF0302814, Theme.WARN);
@@ -301,6 +398,7 @@ public final class SkinsScreen extends Screen {
 			graphics.text(font, line, place.x0() + 5 + Icons.SIZE + 4, y, Theme.WARN, false);
 			y += 10;
 		}
+		cutTooltip(graphics, place, mouseX, mouseY);
 	}
 
 	// ------------------------------------------------------------------ the account on the site
@@ -364,10 +462,13 @@ public final class SkinsScreen extends Screen {
 		if (below == null) below = notice(freshShown);
 		int x0 = layout.infoX0 + 6;
 		int x1 = layout.infoX1 - 6;
-		List<FormattedCharSequence> lines = font.split(said, x1 - x0 - 12 - Icons.SIZE - 4);
+		List<Component> words = List.of(said);
+		int keep = cardLines()[ACCOUNT_CARD];
+		List<FormattedCharSequence> lines = fitted(words, cardTextWidth(layout), keep);
+		boolean cut = fitted(words, cardTextWidth(layout), Integer.MAX_VALUE).size() > keep;
 		int y1 = below != null ? below.y0() - 3 : layout.infoY1 - 6 - ROW - 6;
 		int y0 = y1 - (6 + Math.max(Icons.SIZE, lines.size() * 10) + 4 + ROW + 4);
-		return new Notice(x0, y0, x1, y1, lines);
+		return new Notice(x0, y0, x1, y1, lines, words, cut);
 	}
 
 	private void initAccount() {
@@ -413,6 +514,7 @@ public final class SkinsScreen extends Screen {
 				graphics.text(font, line, card.x0() + 5 + Icons.SIZE + 4, y, textColour, false);
 				y += 10;
 			}
+			cutTooltip(graphics, card, mouseX, mouseY);
 			return;
 		}
 		int y0 = accountStripTop();
@@ -1318,7 +1420,7 @@ public final class SkinsScreen extends Screen {
 		}
 		drawInfo(graphics, layout, entry, mouseX, mouseY);
 		drawFresh(graphics, mouseX, mouseY);
-		drawSeeThrough(graphics);
+		drawSeeThrough(graphics, mouseX, mouseY);
 		drawAccount(graphics, mouseX, mouseY);
 	}
 
@@ -1572,6 +1674,11 @@ public final class SkinsScreen extends Screen {
 	}
 
 	/** The open tab; for the game test. */
+	/** Switches tabs as the tab's button does; for the screenshot run. */
+	public void showTab(Tab next) {
+		switchTab(next);
+	}
+
 	public static Tab tab() {
 		return tab;
 	}

@@ -55,7 +55,7 @@ public final class SkinRateProbe {
 			return;
 		}
 		String original = info.getSkin().model() == PlayerModelType.SLIM ? "slim" : "classic";
-		Path out = net.fabricmc.loader.api.FabricLoader.getInstance().getGameDir().resolve("mosaicary")
+		Path out = com.mopicmp.mosaicary.platform.Platform.gameDir().resolve("mosaicary")
 			.resolve("measure-skins-" + Instant.now().toString().replace(':', '-') + ".json");
 		CompletableFuture.runAsync(() -> {
 			List<Try> tries = new ArrayList<>();

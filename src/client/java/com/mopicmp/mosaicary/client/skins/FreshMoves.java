@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-import net.fabricmc.loader.api.FabricLoader;
+import com.mopicmp.mosaicary.platform.Platform;
 import net.minecraft.client.Minecraft;
 import net.minecraft.server.packs.repository.Pack;
 import net.minecraft.server.packs.repository.PackRepository;
@@ -62,7 +62,7 @@ public final class FreshMoves {
 	public static Status status() {
 		List<Part> missing = new ArrayList<>();
 		for (Part part : Part.values()) {
-			if (part.modId != null && !FabricLoader.getInstance().isModLoaded(part.modId)) missing.add(part);
+			if (part.modId != null && !Platform.isLoaded(part.modId)) missing.add(part);
 		}
 		PackRepository repository = Minecraft.getInstance().getResourcePackRepository();
 		Pack pack = pack(repository);

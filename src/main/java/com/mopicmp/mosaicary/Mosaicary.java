@@ -6,7 +6,9 @@ import org.slf4j.LoggerFactory;
 import com.mopicmp.mosaicary.net.MosaicaryPayloads;
 import com.mopicmp.mosaicary.server.ServerWardrobes;
 
+//#if FABRIC>=1
 import net.fabricmc.api.ModInitializer;
+//#endif
 import net.minecraft.resources.Identifier;
 
 /**
@@ -17,7 +19,11 @@ import net.minecraft.resources.Identifier;
  * ({@link ServerWardrobes}). The client never relies on this half being present on the
  * server it joins.
  */
+//#if FABRIC>=1
 public final class Mosaicary implements ModInitializer {
+//#else
+//$$ public final class Mosaicary {
+//#endif
 
 	public static final String ID = "mosaicary";
 	public static final Logger LOGGER = LoggerFactory.getLogger("Mosaicary");
@@ -26,7 +32,9 @@ public final class Mosaicary implements ModInitializer {
 		return Identifier.fromNamespaceAndPath(ID, path);
 	}
 
+	//#if FABRIC>=1
 	@Override
+	//#endif
 	public void onInitialize() {
 		MosaicaryPayloads.register();
 		ServerWardrobes.init();

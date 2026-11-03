@@ -193,7 +193,7 @@ public final class MenuSkinScreen extends Screen {
 			ghostPauseMenu(graphics);
 			return;
 		}
-		int top = height / 4 + 48;
+		int top = MenuSkin.mainButtonsTop(height);
 		int left = width / 2 - 100;
 		int ghost = 0x40FFFFFF;
 		for (int row = 0; row < 3; row++) outline(graphics, left, top + row * 24, left + 200, top + row * 24 + 20, ghost);

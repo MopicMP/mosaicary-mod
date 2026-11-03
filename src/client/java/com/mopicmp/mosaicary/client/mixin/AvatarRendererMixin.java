@@ -25,17 +25,25 @@ import net.minecraft.world.entity.Avatar;
 @Mixin(AvatarRenderer.class)
 public abstract class AvatarRendererMixin {
 
+	// Both targets are kept as written when the preprocessor converts between projects: its
+	// remapper takes these generic methods for the bridges the compiler adds beside them and
+	// writes the bridges' types.
+	//#disable-remap
 	@Inject(method = "extractRenderState(Lnet/minecraft/world/entity/Avatar;Lnet/minecraft/client/renderer/entity/state/AvatarRenderState;F)V",
 		at = @At("TAIL"))
+	//#enable-remap
 	private void mosaicary$extractWorn(Avatar entity, AvatarRenderState state, float partialTicks, CallbackInfo info) {
 		MosaicaryClient client = MosaicaryClient.instance();
 		// With the model shelf hidden, no model is drawn on anyone.
 		if (client != null && MosaicaryClient.MODELS) client.wearing().extract(entity, state, partialTicks);
 	}
 
+	// As above: the bridge has the same name.
+	//#disable-remap
 	@Inject(method = "shouldRenderLayers(Lnet/minecraft/client/renderer/entity/state/AvatarRenderState;)Z",
 		at = @At("HEAD"), cancellable = true)
+	//#enable-remap
 	private void mosaicary$noLayersWhenWorn(AvatarRenderState state, CallbackInfoReturnable<Boolean> info) {
-		if (state.getData(Wearing.KEY) != null) info.setReturnValue(false);
+		if (Wearing.wornOf(state) != null) info.setReturnValue(false);
 	}
 }

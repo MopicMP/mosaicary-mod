@@ -31,12 +31,16 @@ public abstract class LivingEntityRendererMixin {
 	/** The player model is drawn at fifteen sixteenths; a worn model keeps its own size. */
 	private static final float PLAYER_SCALE = 0.9375f;
 
-	@WrapOperation(method = "submit", at = @At(value = "INVOKE",
+	// The method itself and not the bridge the compiler adds for the generic state, which has the
+	// same name; the preprocessor refuses a name that could be either.
+	@WrapOperation(method = "submit(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;"
+		+ "Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;"
+		+ "Lnet/minecraft/client/renderer/state/level/CameraRenderState;)V", at = @At(value = "INVOKE",
 		target = "Lnet/minecraft/client/renderer/SubmitNodeCollector;submitModel(Lnet/minecraft/client/model/Model;Ljava/lang/Object;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/rendertype/RenderType;IIILnet/minecraft/client/renderer/texture/UvMapping;I)V"))
 	private void mosaicary$drawWorn(SubmitNodeCollector collector, Model<?> model, Object state, PoseStack poseStack,
 			RenderType renderType, int light, int overlay, int tint, UvMapping uvMapping, int outline,
 			Operation<Void> original) {
-		Wearing.Worn worn = state instanceof EntityRenderState entity ? entity.getData(Wearing.KEY) : null;
+		Wearing.Worn worn = state instanceof EntityRenderState entity ? Wearing.wornOf(entity) : null;
 		if (worn == null) {
 			original.call(collector, model, state, poseStack, renderType, light, overlay, tint, uvMapping, outline);
 			return;

@@ -20,9 +20,9 @@ import com.mopicmp.mosaicary.client.site.ModelCard;
 import com.mopicmp.mosaicary.client.site.Settings;
 import com.mopicmp.mosaicary.client.site.SiteClient;
 
-import net.fabricmc.fabric.api.client.rendering.v1.RenderStateDataKey;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.entity.state.AvatarRenderState;
+import net.minecraft.client.renderer.entity.state.EntityRenderState;
 import net.minecraft.world.entity.Avatar;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.HumanoidArm;
@@ -62,8 +62,20 @@ public final class Wearing {
 	 */
 	public static final double OTHERS_TALLEST = 3.6;
 
-	/** Where the extracted frame travels from the entity to the renderer. */
-	public static final RenderStateDataKey<Worn> KEY = RenderStateDataKey.create(() -> "Mosaicary worn model");
+	/**
+	 * Where the extracted frame travels from the entity to the renderer: a field the mod adds to
+	 * every entity's render state (client/mixin/EntityRenderStateMixin).
+	 */
+	public interface Carrier {
+		Worn mosaicary$worn();
+
+		void mosaicary$worn(Worn worn);
+	}
+
+	/** The worn model's frame in a render state, or null. */
+	public static Worn wornOf(EntityRenderState state) {
+		return ((Carrier) state).mosaicary$worn();
+	}
 
 	/** Told whenever the local player's model or its roles change, to pass it on. */
 	public interface Listener {
@@ -279,7 +291,7 @@ public final class Wearing {
 	 * Called while the game extracts the player's render state, on the client thread.
 	 */
 	public void extract(Avatar entity, AvatarRenderState state, float partialTicks) {
-		state.setData(KEY, null);
+		((Carrier) state).mosaicary$worn(null);
 		UUID uuid = entity.getUUID();
 		boolean local = isLocal(uuid);
 		ModelCard card = local ? worn() : others.get(uuid);
@@ -341,7 +353,7 @@ public final class Wearing {
 			unreadableLogged++;
 			Mosaicary.LOGGER.info("Model {}: {} animation values could not be read and count as 0", card.id(), unreadable[0]);
 		}
-		state.setData(KEY, new Worn(mesh, frame, state.isCrouching, (float) drawnScale(local ? scaleFor(card) : otherScales.getOrDefault(uuid, 1.0), mesh, local)));
+		((Carrier) state).mosaicary$worn(new Worn(mesh, frame, state.isCrouching, (float) drawnScale(local ? scaleFor(card) : otherScales.getOrDefault(uuid, 1.0), mesh, local)));
 	}
 
 	/**

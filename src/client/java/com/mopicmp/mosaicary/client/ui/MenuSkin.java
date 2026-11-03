@@ -11,7 +11,6 @@ import com.mopicmp.mosaicary.client.skins.FreshMoves;
 import com.mopicmp.mosaicary.client.skins.LiveEyes;
 import com.mopicmp.mosaicary.client.skins.Skins;
 
-import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractButton;
@@ -20,6 +19,7 @@ import net.minecraft.client.gui.narration.NarratedElementType;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.model.Model;
 import net.minecraft.client.resources.DefaultPlayerSkin;
@@ -36,8 +36,8 @@ import net.minecraft.world.entity.player.PlayerSkin;
 /**
  * The player's own skin standing to the right of the main menu and of the pause menu, as the
  * Bedrock edition shows its character: the game's player model, swaying a little, the head
- * following the pointer, the name on a card under the feet. Dragging turns it; a click opens
- * the wardrobe.
+ * following the pointer. No name under it: the menu is the player's own, and a card there only
+ * covers the background. Dragging turns it; a click opens the wardrobe.
  *
  * <h2>Which skin</h2>
  *
@@ -88,7 +88,6 @@ public final class MenuSkin extends AbstractWidget {
 	/** Where the main menu's buttons end, to the right of the middle, and the gap kept from them. */
 	private static final int BUTTONS_HALF = 100;
 	private static final int CLEAR_OF_BUTTONS = 12;
-	private static final int NAME_ROW = 14;
 
 	private static Supplier<PlayerSkin> accountSkin;
 	private static boolean asked;
@@ -126,34 +125,50 @@ public final class MenuSkin extends AbstractWidget {
 	/** The figure's box: where it stands and how large, in GUI units. */
 	public record Place(int x, int y, int width, int height) { }
 
+	/** The main menu's column of buttons where the game puts it when no mod adds to it. */
+	public static final int MAIN_BUTTONS_TALL = 116;
+
+	public static int mainButtonsTop(int height) {
+		return height / 4 + 48;
+	}
+
 	/**
-	 * Where the figure stands on a menu of this size with these settings: as tall as the column
-	 * of buttons at 100 percent, its feet level with the last row, just to the right of the
-	 * buttons; then moved by the settings' offset and kept on the screen. Its size is in GUI
-	 * units, as the buttons' is, so it follows the GUI scale chosen in the options. Null when the
-	 * screen has no room for it at all.
+	 * Where the figure stands on a main menu of this size with these settings, its buttons where
+	 * the game puts them when no mod adds any: the settings screen's outlines. The live menu is
+	 * measured instead (besideMainMenu). Null when the screen has no room for it at all.
 	 */
 	public static Place place(int width, int height, Settings settings) {
-		return place(width, height, width / 2 + BUTTONS_HALF, height / 4 + 48 + 4 * 24 + 20, Beside.MAIN, settings);
+		int top = mainButtonsTop(height);
+		return level(width, height, width / 2 + BUTTONS_HALF, top, top + MAIN_BUTTONS_TALL, Beside.MAIN, settings);
+	}
+
+	/**
+	 * As tall as a column of buttons at 100 percent and level with it, its middle at the column's
+	 * middle, just to the right of the buttons; then moved by the settings' offset and kept on the
+	 * screen. Its size is in GUI units, as the buttons' is, so it follows the GUI scale chosen in
+	 * the options.
+	 */
+	private static Place level(int width, int height, int buttonsRight, int top, int bottom, Beside beside, Settings settings) {
+		int figure = FIGURE * beside.size(settings) / 100;
+		return place(width, height, buttonsRight, (top + bottom) / 2 + figure / 2, beside, settings);
 	}
 
 	private static Place place(int width, int height, int buttonsRight, int feet, Beside beside, Settings settings) {
 		int figure = FIGURE * beside.size(settings) / 100;
 		// Smaller than chosen when the screen is not tall enough for it.
-		figure = Math.min(figure, height - 8 - NAME_ROW);
+		figure = Math.min(figure, height - 8);
 		if (figure < 40) return null;
 		int boxWidth = figure * 3 / 5;
 		int x = buttonsRight + CLEAR_OF_BUTTONS + beside.x(settings);
 		int y = feet - figure + beside.y(settings);
 		x = Math.max(0, Math.min(width - boxWidth, x));
-		y = Math.max(2, Math.min(height - figure - NAME_ROW - 2, y));
+		y = Math.max(2, Math.min(height - figure - 2, y));
 		return new Place(x, y, boxWidth, figure);
 	}
 
 	/** Puts the figure beside a main menu that has just been laid out; where, it works out every frame. */
 	public static void addTo(Screen screen, int width, int height) {
-		List<AbstractWidget> widgets = Screens.getWidgets(screen);
-		widgets.add(new MenuSkin(screen, screen instanceof PauseScreen ? Beside.PAUSE : Beside.MAIN, false));
+		ScreenWidgets.add(screen, new MenuSkin(screen, screen instanceof PauseScreen ? Beside.PAUSE : Beside.MAIN, false));
 	}
 
 	private boolean enabled() {
@@ -169,7 +184,7 @@ public final class MenuSkin extends AbstractWidget {
 	/** The box for the screen and settings as they are now; the widget follows it. */
 	private Place placeNow() {
 		Settings settings = MosaicaryClient.instance().settings();
-		Place place = beside == Beside.PAUSE ? besidePauseMenu(settings) : place(screen.width, screen.height, settings);
+		Place place = beside == Beside.PAUSE ? besidePauseMenu(settings) : besideMainMenu(settings);
 		if (place != null) {
 			setX(place.x());
 			setY(place.y());
@@ -191,13 +206,41 @@ public final class MenuSkin extends AbstractWidget {
 		}
 		int right = screen.width / 2;
 		int bottom = screen.height / 2;
-		for (AbstractWidget widget : Screens.getWidgets(screen)) {
+		for (AbstractWidget widget : ScreenWidgets.of(screen)) {
 			if (widget == this || !(widget instanceof AbstractButton) || widget.getX() > screen.width * 3 / 4) continue;
 			right = Math.max(right, widget.getRight());
 			bottom = Math.max(bottom, widget.getBottom());
 		}
 		return place(screen.width, screen.height, right, bottom, beside, settings);
 	}
+
+	/**
+	 * Beside the main menu's column of buttons as it stands on the screen, which other mods add to
+	 * (NeoForge puts a button to the right of Singleplayer) and which is not always where the
+	 * game's numbers say: level with the column and to the right of its rightmost button. The
+	 * copyright line at the bottom and buttons far from the middle are not part of it. On the
+	 * screen that places the figure, against the outlines.
+	 */
+	private Place besideMainMenu(Settings settings) {
+		if (!(screen instanceof TitleScreen)) return place(screen.width, screen.height, settings);
+		int middle = screen.width / 2;
+		int top = Integer.MAX_VALUE;
+		int bottom = 0;
+		int right = middle + BUTTONS_HALF;
+		for (AbstractWidget widget : ScreenWidgets.of(screen)) {
+			if (widget == this || !(widget instanceof AbstractButton)) continue;
+			if (widget.getX() < middle - COLUMN_REACH || widget.getRight() > middle + COLUMN_REACH) continue;
+			if (widget.getBottom() > screen.height - 14) continue;
+			top = Math.min(top, widget.getY());
+			bottom = Math.max(bottom, widget.getBottom());
+			right = Math.max(right, widget.getRight());
+		}
+		if (top == Integer.MAX_VALUE) return place(screen.width, screen.height, settings);
+		return level(screen.width, screen.height, right, top, bottom, beside, settings);
+	}
+
+	/** How far from the middle a button can stand and still be part of the main menu's column. */
+	private static final int COLUMN_REACH = 160;
 
 	public static final int PAUSE_BUTTONS_HALF = 102;
 	public static final int PAUSE_BUTTONS_TALL = 116;
@@ -285,16 +328,9 @@ public final class MenuSkin extends AbstractWidget {
 		float scale = 0.97f * getHeight() / 2.125f;
 		graphics.skin(model, textureNow(worn), scale, -5, 20 + turned, -1.0625f, getX(), getY(), getRight(), getBottom());
 
-		// The name on a card under the feet.
-		var font = Minecraft.getInstance().font;
-		String name = Minecraft.getInstance().getUser().getName();
-		int nameWidth = font.width(name) + 10;
-		int cardX = (int) middle - nameWidth / 2;
-		int cardY = getBottom() + 2;
-		Theme.card(graphics, cardX, cardY, cardX + nameWidth, cardY + NAME_ROW - 2, isHovered() ? Theme.CARD_HOVER : Theme.CARD,
-			isHovered() ? Theme.ACCENT : Theme.EDGE);
-		graphics.text(font, name, cardX + 5, cardY + 2, Theme.TEXT, false);
-		if (isHovered() && !preview) Theme.tooltip(graphics, font, Component.translatable("mosaicary.menu_skin.tooltip"), mouseX, mouseY);
+		if (isHovered() && !preview) {
+			Theme.tooltip(graphics, Minecraft.getInstance().font, Component.translatable("mosaicary.menu_skin.tooltip"), mouseX, mouseY);
+		}
 	}
 
 	private float lastYaw;
@@ -311,7 +347,7 @@ public final class MenuSkin extends AbstractWidget {
 
 	/** The figure on a screen, or null; for the game test. */
 	public static MenuSkin on(Screen screen) {
-		for (AbstractWidget widget : Screens.getWidgets(screen)) if (widget instanceof MenuSkin figure) return figure;
+		for (AbstractWidget widget : ScreenWidgets.of(screen)) if (widget instanceof MenuSkin figure) return figure;
 		return null;
 	}
 

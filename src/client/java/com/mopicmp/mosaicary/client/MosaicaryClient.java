@@ -7,7 +7,9 @@ import java.util.List;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mopicmp.mosaicary.Mosaicary;
 import com.mopicmp.mosaicary.client.build.Builds;
+import com.mopicmp.mosaicary.client.platform.ClientPlatform;
 import com.mopicmp.mosaicary.client.render.PreviewRenderer;
+import com.mopicmp.mosaicary.client.render.PreviewState;
 import com.mopicmp.mosaicary.client.site.Settings;
 import com.mopicmp.mosaicary.client.site.SiteClient;
 import com.mopicmp.mosaicary.client.skins.SkinRateProbe;
@@ -18,25 +20,21 @@ import com.mopicmp.mosaicary.client.ui.HintToast;
 import com.mopicmp.mosaicary.client.ui.MenuSkin;
 import com.mopicmp.mosaicary.client.ui.PauseMenuButton;
 import com.mopicmp.mosaicary.client.ui.RingScreen;
+import com.mopicmp.mosaicary.client.ui.ScreenWidgets;
 import com.mopicmp.mosaicary.client.ui.SkinsScreen;
 import com.mopicmp.mosaicary.client.wear.WearRelay;
 import com.mopicmp.mosaicary.client.wear.Wearing;
 import com.mopicmp.mosaicary.net.MosaicaryPayloads;
+import com.mopicmp.mosaicary.platform.Platform;
 
+import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 
+//#if FABRIC>=1
 import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.client.rendering.v1.PictureInPictureRendererRegistry;
-import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
-import net.fabricmc.fabric.api.client.screen.v1.Screens;
-import net.fabricmc.loader.api.FabricLoader;
+//#endif
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -62,7 +60,11 @@ import net.minecraft.network.chat.Component;
  * opens the wardrobe, the ring key is not registered, and no model is drawn on anyone.
  * {@code -Dmosaicary.models=true} brings them back, for the game tests that cover them.
  */
+//#if FABRIC>=1
 public final class MosaicaryClient implements ClientModInitializer {
+//#else
+//$$ public final class MosaicaryClient {
+//#endif
 
 	/** Whether the model catalogue and everything that goes with it is shown. */
 	public static final boolean MODELS = Boolean.getBoolean("mosaicary.models");
@@ -160,22 +162,23 @@ public final class MosaicaryClient implements ClientModInitializer {
 		siteInUse = site;
 	}
 
+	//#if FABRIC>=1
 	@Override
+	//#endif
 	public void onInitializeClient() {
 		instance = this;
-		Path gameDir = FabricLoader.getInstance().getGameDir();
-		settingsFile = FabricLoader.getInstance().getConfigDir().resolve("mosaicary.json");
+		Path gameDir = Platform.gameDir();
+		settingsFile = Platform.configDir().resolve("mosaicary.json");
 		settings = Settings.load(settingsFile);
 		settingsSeen = modified();
 		siteInUse = settings.siteBase();
-		String version = FabricLoader.getInstance().getModContainer(Mosaicary.ID)
-			.map(mod -> mod.getMetadata().getVersion().getFriendlyString()).orElse("dev");
+		String version = Platform.version(Mosaicary.ID);
 		SiteClient site = new SiteClient(settings.siteBase(), gameDir.resolve("mosaicary"),
 			"Mosaicary/" + version + " (Minecraft mod; +https://mosaicary.com)");
 		// The mods here that place builds, which is where an installed build goes.
 		List<Builds.Format> placers = new ArrayList<>();
 		for (Builds.Format one : Builds.Format.values()) {
-			if (FabricLoader.getInstance().isModLoaded(one.modId)) placers.add(one);
+			if (Platform.isLoaded(one.modId)) placers.add(one);
 		}
 		site.placers(placers);
 		catalogue = new Catalogue(site);
@@ -195,43 +198,48 @@ public final class MosaicaryClient implements ClientModInitializer {
 			}
 			relay.skinChanged(applied.mojang().texture(), applied.mojang().arms());
 			// A server with the mod shows the new skin to everybody without the player joining again.
-			if (ClientPlayNetworking.canSend(MosaicaryPayloads.SkinChanged.TYPE)) {
-				ClientPlayNetworking.send(new MosaicaryPayloads.SkinChanged(Minecraft.getInstance().getUser().getProfileId(),
+			if (ClientPlatform.canSend(MosaicaryPayloads.SkinChanged.TYPE)) {
+				ClientPlatform.send(new MosaicaryPayloads.SkinChanged(Minecraft.getInstance().getUser().getProfileId(),
 					applied.mojang().texture()));
 			}
 		});
-		ClientPlayNetworking.registerGlobalReceiver(MosaicaryPayloads.Hello.TYPE,
-			(payload, context) -> context.client().execute(wardrobeSync::serverGreeted));
-		ClientPlayNetworking.registerGlobalReceiver(MosaicaryPayloads.WardrobeState.TYPE,
-			(payload, context) -> context.client().execute(() -> wardrobeSync.fromServer(payload.json())));
+		ClientPlatform.onReceive(MosaicaryPayloads.Hello.TYPE,
+			payload -> Minecraft.getInstance().execute(wardrobeSync::serverGreeted));
+		ClientPlatform.onReceive(MosaicaryPayloads.WardrobeState.TYPE,
+			payload -> Minecraft.getInstance().execute(() -> wardrobeSync.fromServer(payload.json())));
 
-		PictureInPictureRendererRegistry.register(context -> new PreviewRenderer());
+		ClientPlatform.pictureInPicture(PreviewState.class, PreviewRenderer::new);
 
 		// The measurement of how many skin changes in a row Mojang takes; run by hand only,
 		// since it changes the account's skin back and forth (SkinRateProbe).
-		ClientCommandRegistrationCallback.EVENT.register((dispatcher, context) -> dispatcher.register(
-			ClientCommands.literal("mosaicary-measure-skins").then(
-				ClientCommands.argument("count", IntegerArgumentType.integer(1, 60)).then(
-					ClientCommands.argument("seconds", IntegerArgumentType.integer(0, 600)).executes(command -> {
-						var source = command.getSource();
-						Minecraft minecraft = source.getClient();
-						SkinRateProbe.run(IntegerArgumentType.getInteger(command, "count"),
-							IntegerArgumentType.getInteger(command, "seconds"),
-							line -> minecraft.execute(() -> source.sendFeedback(Component.literal(line))));
-						return 1;
-					})))));
+		// Written for any command source, since the loaders' client commands use different ones;
+		// the lines go straight to the chat.
+		ClientPlatform.commands(new ClientPlatform.Commands() {
+			@Override
+			public <S> void register(CommandDispatcher<S> dispatcher) {
+				dispatcher.register(LiteralArgumentBuilder.<S>literal("mosaicary-measure-skins").then(
+					RequiredArgumentBuilder.<S, Integer>argument("count", IntegerArgumentType.integer(1, 60)).then(
+						RequiredArgumentBuilder.<S, Integer>argument("seconds", IntegerArgumentType.integer(0, 600)).executes(command -> {
+							Minecraft minecraft = Minecraft.getInstance();
+							SkinRateProbe.run(IntegerArgumentType.getInteger(command, "count"),
+								IntegerArgumentType.getInteger(command, "seconds"),
+								line -> minecraft.execute(() -> minecraft.gui.hud.getChat().addClientSystemMessage(Component.literal(line))));
+							return 1;
+						}))));
+			}
+		});
 
-		KeyMapping.Category category = KeyMapping.Category.register(Mosaicary.id("main"));
-		openKey = KeyMappingHelper.registerKeyMapping(
+		KeyMapping.Category category = ClientPlatform.keyCategory(Mosaicary.id("main"));
+		openKey = ClientPlatform.key(
 			new KeyMapping("key.mosaicary.wardrobe", InputConstants.Type.KEYBOARD, InputConstants.KEY_M, category));
 
 		// Held to show the quick-select ring; R is free in the game's own key list. Models only.
 		if (MODELS) {
-			ringKey = KeyMappingHelper.registerKeyMapping(
+			ringKey = ClientPlatform.key(
 				new KeyMapping("key.mosaicary.ring", InputConstants.Type.KEYBOARD, InputConstants.KEY_R, category));
 		}
 
-		ClientTickEvents.END_CLIENT_TICK.register(minecraft -> {
+		ClientPlatform.onTick(minecraft -> {
 			if (++ticks % 20 == 0) watchSettings();
 			relay.tick(minecraft);
 			wardrobeSync.tick();
@@ -247,7 +255,7 @@ public final class MosaicaryClient implements ClientModInitializer {
 			}
 		});
 
-		ScreenEvents.AFTER_INIT.register((minecraft, screen, width, height) -> {
+		ClientPlatform.onScreenInit((minecraft, screen, width, height) -> {
 			if (screen instanceof PauseScreen) addPauseButton(screen);
 			// The player's skin beside the main and pause menus (shown or not by the settings, read live).
 			if (screen instanceof TitleScreen || screen instanceof PauseScreen pause && pause.showsPauseMenu()) {
@@ -257,22 +265,24 @@ public final class MosaicaryClient implements ClientModInitializer {
 		});
 
 		// Hints on entering a world, as toasts that disappear by themselves.
-		ClientPlayConnectionEvents.JOIN.register((listener, sender, minecraft) -> minecraft.execute(() -> {
+		ClientPlatform.onJoin(minecraft -> minecraft.execute(() -> {
 			hintsOnJoin(minecraft);
 			skins.refreshOwn(true);
 		}));
-		ClientPlayConnectionEvents.DISCONNECT.register((listener, minecraft) -> minecraft.execute(() -> {
+		ClientPlatform.onLeave(minecraft -> minecraft.execute(() -> {
 			relay.leftWorld();
 			wearing.forgetOthers();
 			skins.forgetOthers();
 			wardrobeSync.leftServer();
 		}));
 
-		ClientLifecycleEvents.CLIENT_STOPPING.register(minecraft -> {
+		ClientPlatform.onStopping(minecraft -> {
 			site.close();
 			skins.close();
 		});
 
+		String lan = System.getProperty("mosaicary.devLan");
+		if (lan != null && !lan.isBlank()) DevLan.start(Integer.parseInt(lan.trim()));
 		String shots = System.getProperty("mosaicary.shots");
 		if (shots != null && !shots.isBlank()) Shots.start(Path.of(shots), this);
 
@@ -339,7 +349,7 @@ public final class MosaicaryClient implements ClientModInitializer {
 	 * than by position, so a menu without it (opened with F3 + Esc) gets no button.
 	 */
 	private void addPauseButton(Screen screen) {
-		List<AbstractWidget> widgets = Screens.getWidgets(screen);
+		List<AbstractWidget> widgets = ScreenWidgets.of(screen);
 		List<AbstractWidget> row = new ArrayList<>();
 		for (AbstractWidget widget : widgets) {
 			if (widget instanceof SpriteIconButton && widget.getWidth() == 20 && widget.getHeight() == 20) {
@@ -354,6 +364,6 @@ public final class MosaicaryClient implements ClientModInitializer {
 		}
 		Component label = Component.translatable("mosaicary.pause.button",
 			openKey.getTranslatedKeyMessage());
-		widgets.add(new PauseMenuButton(right + 4, row.get(0).getY(), label, () -> openWardrobe(screen)));
+		ScreenWidgets.add(screen, new PauseMenuButton(right + 4, row.get(0).getY(), label, () -> openWardrobe(screen)));
 	}
 }

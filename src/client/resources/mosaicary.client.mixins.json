@@ -5,8 +5,11 @@
 	"compatibilityLevel": "JAVA_25",
 	"client": [
 		"AvatarRendererMixin",
+		"EntityRenderStateMixin",
+		"GuiGraphicsExtractorAccessor",
 		"LivingEntityRendererMixin",
 		"PlayerInfoMixin",
+		"ScreenAccessor",
 		"SkinTextureDownloaderMixin"
 	],
 	"injectors": {

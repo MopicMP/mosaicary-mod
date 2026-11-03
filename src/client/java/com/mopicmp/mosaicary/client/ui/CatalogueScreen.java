@@ -17,6 +17,7 @@ import com.mopicmp.mosaicary.client.model.Animation;
 import com.mopicmp.mosaicary.client.model.BbModel;
 import com.mopicmp.mosaicary.client.model.Posing;
 import com.mopicmp.mosaicary.client.model.Roles;
+import com.mopicmp.mosaicary.client.mixin.GuiGraphicsExtractorAccessor;
 import com.mopicmp.mosaicary.client.render.PreviewState;
 import com.mopicmp.mosaicary.client.site.ModelCard;
 import com.mopicmp.mosaicary.client.site.Settings;
@@ -1252,10 +1253,11 @@ public final class CatalogueScreen extends Screen {
 			// The animation widgets are made once the model has arrived.
 			if (animationsFor != open && !model.mesh().model().animations().isEmpty()) rebuildWidgets();
 			else if (infoTab == TAB_ROLES && roleBoxes.isEmpty()) rebuildWidgets();
-			graphics.guiRenderState.addPicturesInPictureState(PreviewState.of(model.mesh(),
+			// No scissor: the detail view is drawn outside any, the grid's is closed before it.
+			((GuiGraphicsExtractorAccessor) graphics).mosaicary$guiRenderState().addPicturesInPictureState(PreviewState.of(model.mesh(),
 				previewPosing(model.mesh().model()), spin, tilt, center,
 				layout.previewX0 + 1, layout.previewY0 + 1, layout.previewX1 - 1, layout.previewY1 - 1, scale,
-				graphics.scissorStack.peek()));
+				null));
 		} else {
 			boolean loading = model.state() == Catalogue.State.LOADING;
 			Component title = Component.translatable(loading ? "mosaicary.detail.loading" : "mosaicary.detail.failed");

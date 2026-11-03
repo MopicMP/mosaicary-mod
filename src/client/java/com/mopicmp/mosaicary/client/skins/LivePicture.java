@@ -6,6 +6,7 @@ import java.util.List;
 
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mopicmp.mosaicary.Mosaicary;
+import com.mopicmp.mosaicary.client.render.Textures;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
@@ -36,7 +37,7 @@ final class LivePicture implements AutoCloseable {
 		Decoded first = frames.get(0);
 		this.canvas = new NativeImage(first.image().getWidth(), first.image().getHeight(), false);
 		this.canvas.copyFrom(first.image());
-		this.texture = new DynamicTexture(() -> "Mosaicary live picture", canvas);
+		this.texture = Textures.of(() -> "Mosaicary live picture", canvas);
 		this.id = Mosaicary.id("skins/live-picture/" + (made++));
 		Minecraft.getInstance().getTextureManager().register(id, texture);
 		long sum = 0;
@@ -96,9 +97,13 @@ final class LivePicture implements AutoCloseable {
 	private void draw(Decoded one) {
 		int x0 = one.frame().x();
 		int y0 = one.frame().y();
-		for (int y = 0; y < one.image().getHeight() && y0 + y < canvas.getHeight(); y++) {
-			for (int x = 0; x < one.image().getWidth() && x0 + x < canvas.getWidth(); x++) {
-				canvas.setPixel(x0 + x, y0 + y, one.image().getPixel(x, y));
+		// A local, not one.image(): the preprocessor does not resolve calls on a nested record.
+		NativeImage image = one.image();
+		for (int y = 0; y < image.getHeight() && y0 + y < canvas.getHeight(); y++) {
+			for (int x = 0; x < image.getWidth() && x0 + x < canvas.getWidth(); x++) {
+				// Apart: the preprocessor rewrites a call inside another it rewrites as well only once.
+				int pixel = image.getPixel(x, y);
+				canvas.setPixel(x0 + x, y0 + y, pixel);
 			}
 		}
 	}

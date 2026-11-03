@@ -37,7 +37,7 @@ public final class LanguagesGameTest implements FabricClientGameTest {
 		if (System.getProperty("mosaicary.testLanguages") == null) return;
 		context.getInput().resizeWindow(1280, 720);
 		context.waitForScreen(TitleScreen.class);
-		context.runOnClient(minecraft -> {
+		context.runOnClient((Minecraft minecraft) -> {
 			minecraft.options.guiScale().set(3);
 			minecraft.resizeGui();
 		});
@@ -48,11 +48,11 @@ public final class LanguagesGameTest implements FabricClientGameTest {
 		}
 		select(context, "en_us");
 		// The open tab is remembered between screens, and the next test expects the catalogue.
-		context.runOnClient(minecraft -> minecraft.gui.setScreen(
-			new SkinsScreen(new TitleScreen(), MosaicaryClient.instance().skins())));
+		context.runOnClient((Minecraft minecraft) -> { minecraft.gui.setScreen(
+			new SkinsScreen(new TitleScreen(), MosaicaryClient.instance().skins())); });
 		context.waitForScreen(SkinsScreen.class);
 		tab(context, "mosaicary.skins.tab.catalogue");
-		context.runOnClient(minecraft -> {
+		context.runOnClient((Minecraft minecraft) -> {
 			minecraft.options.guiScale().set(0);
 			minecraft.resizeGui();
 			minecraft.gui.setScreen(new TitleScreen());
@@ -61,17 +61,17 @@ public final class LanguagesGameTest implements FabricClientGameTest {
 	}
 
 	private static void walk(ClientGameTestContext context, String code) {
-		context.runOnClient(minecraft -> minecraft.gui.setScreen(
-			new SkinsScreen(new TitleScreen(), MosaicaryClient.instance().skins())));
+		context.runOnClient((Minecraft minecraft) -> { minecraft.gui.setScreen(
+			new SkinsScreen(new TitleScreen(), MosaicaryClient.instance().skins())); });
 		context.waitForScreen(SkinsScreen.class);
 		tab(context, "mosaicary.skins.tab.catalogue");
-		context.waitFor(minecraft -> minecraft.gui.screen() instanceof SkinsScreen screen && screen.cardsRead(), 20 * 60);
+		context.waitFor((Minecraft minecraft) -> minecraft.gui.screen() instanceof SkinsScreen screen && screen.cardsRead(), 20 * 60);
 		context.waitTicks(20);
 		snap(context, code, "1-catalogue");
 
-		int[] card = context.computeOnClient(minecraft -> ((SkinsScreen) minecraft.gui.screen()).cardCenter(0));
+		int[] card = context.computeOnClient((Minecraft minecraft) -> ((SkinsScreen) minecraft.gui.screen()).cardCenter(0));
 		Steps.click(context, card[0], card[1]);
-		context.waitFor(minecraft -> minecraft.gui.screen() instanceof SkinsScreen screen && screen.openCard() != null, 100);
+		context.waitFor((Minecraft minecraft) -> minecraft.gui.screen() instanceof SkinsScreen screen && screen.openCard() != null, 100);
 		context.waitTicks(20);
 		snap(context, code, "2-skin");
 		context.getInput().pressKey(InputConstants.KEY_ESCAPE);
@@ -81,28 +81,28 @@ public final class LanguagesGameTest implements FabricClientGameTest {
 		context.waitTicks(10);
 		snap(context, code, "3-my-skins");
 
-		context.runOnClient(minecraft -> {
+		context.runOnClient((Minecraft minecraft) -> {
 			SkinsScreen screen = (SkinsScreen) minecraft.gui.screen();
 			minecraft.gui.setScreen(new SkinFileScreen(screen, screen.skins(), file -> { }));
 		});
 		context.waitTicks(10);
 		snap(context, code, "4-import");
 
-		context.runOnClient(minecraft -> minecraft.gui.setScreen(new SettingsScreen(new TitleScreen())));
+		context.runOnClient((Minecraft minecraft) -> { minecraft.gui.setScreen(new SettingsScreen(new TitleScreen())); });
 		context.waitTicks(5);
 		snap(context, code, "5-settings");
 
-		context.runOnClient(minecraft -> minecraft.gui.setScreen(new ConsentScreen(new TitleScreen(), () -> { })));
+		context.runOnClient((Minecraft minecraft) -> { minecraft.gui.setScreen(new ConsentScreen(new TitleScreen(), () -> { })); });
 		context.waitTicks(5);
 		snap(context, code, "6-consent");
 
-		context.runOnClient(minecraft -> minecraft.gui.setScreen(new MenuSkinScreen(new TitleScreen(), MenuSkin.Beside.MAIN)));
+		context.runOnClient((Minecraft minecraft) -> { minecraft.gui.setScreen(new MenuSkinScreen(new TitleScreen(), MenuSkin.Beside.MAIN)); });
 		context.waitTicks(5);
 		snap(context, code, "7-place");
 	}
 
 	private static void select(ClientGameTestContext context, String code) {
-		context.runOnClient(minecraft -> {
+		context.runOnClient((Minecraft minecraft) -> {
 			minecraft.options.languageCode = code;
 			minecraft.getLanguageManager().setSelected(code);
 			minecraft.getLanguageManager().onResourceManagerReload(minecraft.getResourceManager());
@@ -113,7 +113,7 @@ public final class LanguagesGameTest implements FabricClientGameTest {
 
 	/** Clicks a tab of the wardrobe by its words, which are its message whether or not it shows them. */
 	private static void tab(ClientGameTestContext context, String key) {
-		double[] at = context.computeOnClient(minecraft -> {
+		double[] at = context.computeOnClient((Minecraft minecraft) -> {
 			String label = Component.translatable(key).getString();
 			String tooltip = Component.translatable(key + ".tooltip").getString();
 			for (AbstractWidget widget : Screens.getWidgets(minecraft.gui.screen())) {

@@ -8,15 +8,30 @@ plugins {
 	id("gg.essential.defaults")
 }
 
+// Calls that moved to another object between game versions are written once and rewritten by
+// the preprocessor from the patterns in client/platform/ClientPatterns.
+preprocess {
+	patternAnnotation.set("com.mopicmp.mosaicary.client.platform.Pattern")
+}
+
 val modVersion = property("mod_version").toString()
 version = modVersion
 group = property("maven_group").toString()
-// The game versions a jar is for in NeoForge's metadata: its own and its patch releases, up to the
-// next one (26.3 -> [26.3,26.4)). A placeholder of its own, as the toolkit expands ${...} itself.
+// The game versions a jar is for in the loaders' metadata: its own and its patch releases, up to
+// the next one (26.3 -> [26.3,26.4), 1.21.1 -> [1.21.1,1.21.2)), and the Java it needs, which the
+// mixin configurations name too. Placeholders of their own, as the toolkit expands ${...} itself.
 val mcNext = platform.mcVersionStr.split(".").let { it.dropLast(1) + (it.last().toInt() + 1).toString() }.joinToString(".")
-tasks.processResources {
+val javaMajor = platform.javaVersion.majorVersion
+// NeoForge is numbered after the game without its leading "1." (1.21.11 -> 21.11) until 26.1, and
+// after the game itself since (26.3).
+val neoForgeMin = if (platform.isUnobfuscated) platform.mcVersionStr else platform.mcVersionStr.removePrefix("1.")
+tasks.withType<ProcessResources>().configureEach {
 	inputs.property("mcNext", mcNext)
-	filesMatching("META-INF/neoforge.mods.toml") { filter { it.replace("@MC_NEXT@", mcNext) } }
+	inputs.property("javaMajor", javaMajor)
+	inputs.property("neoForgeMin", neoForgeMin)
+	filesMatching(listOf("META-INF/neoforge.mods.toml", "fabric.mod.json", "*.mixins.json")) {
+		filter { it.replace("@MC_NEXT@", mcNext).replace("@JAVA@", javaMajor).replace("@NEOFORGE_MIN@", neoForgeMin) }
+	}
 }
 
 // The game version and loader go in the file name, not in the mod's own version, which the site
@@ -72,6 +87,11 @@ if (!platform.isFabric) {
 		compileClasspath += main.compileClasspath + main.output
 		runtimeClasspath += main.runtimeClasspath + main.output
 	}
+	// The preprocessor reads the class path from the configuration (see the game tests below).
+	configurations.named(client.compileClasspathConfigurationName) {
+		extendsFrom(configurations.getByName(main.compileClasspathConfigurationName))
+	}
+	dependencies { client.compileOnlyConfigurationName(main.output) }
 	loom {
 		mods {
 			create("mosaicary") {
@@ -161,11 +181,23 @@ loom {
 // that adds its run before giving it an environment, and the build stops on it. This is what it
 // does, for the client test only: a source set and a mod of its own, a run that inherits the
 // client's with Fabric API's switches, and an empty run folder each time.
-if (platform.isFabric) {
+//
+// Fabric API has the client game test API from 1.21.4 on; older versions are checked with the
+// screenshot run (`runShots`) instead.
+if (platform.isFabric && platform.mcVersion >= 12104) {
 	val client = sourceSets.getByName("client")
 	val gametest = sourceSets.create("gametest") {
 		compileClasspath += client.compileClasspath + sourceSets.main.get().output + client.output
 		runtimeClasspath += client.runtimeClasspath + sourceSets.main.get().output + client.output
+	}
+	// The preprocessor reads a source set's class path from its configuration, not from the files
+	// above, and without it cannot tell what the tests' names refer to and leaves them unconverted.
+	configurations.named(gametest.compileClasspathConfigurationName) {
+		extendsFrom(configurations.getByName(client.compileClasspathConfigurationName))
+	}
+	dependencies {
+		gametest.compileOnlyConfigurationName(sourceSets.main.get().output)
+		gametest.compileOnlyConfigurationName(client.output)
 	}
 	loom {
 		mods.create("mosaicary-gametest") { sourceSet(gametest) }
@@ -188,8 +220,10 @@ dependencies {
 	if (platform.isFabric) {
 		"modImplementation"("net.fabricmc.fabric-api:fabric-api:${property("fabric_api_version")}")
 		// Mod Menu's interface, to open the settings from its list of mods. Not shipped and not
-		// required: the entry point is only loaded when Mod Menu is there.
-		"clientCompileOnly"("com.terraformersmc:modmenu:${property("modmenu_version")}")
+		// required: the entry point is only loaded when Mod Menu is there. On the obfuscated game
+		// versions it has to be remapped to the names the mod is compiled against.
+		val modMenu = "com.terraformersmc:modmenu:${property("modmenu_version")}"
+		if (platform.isUnobfuscated) "clientCompileOnly"(modMenu) else "modClientCompileOnly"(modMenu)
 	}
 
 	// A WebP decoder, for the preview pictures the site serves.
@@ -254,6 +288,8 @@ tasks.withType<JavaCompile>().configureEach {
 	// against the whole Minecraft jar exhausts the default, and the failure says "worker daemon
 	// finished with non-zero exit value" without mentioning memory.
 	options.forkOptions.memoryMaximumSize = "2g"
+	// All of a version's errors at once rather than the first hundred, when a new version is added.
+	options.compilerArgs.addAll(listOf("-Xmaxerrs", "2000"))
 }
 
 // Other mods for a game test run, without adding them to the mod's dependencies: a folder of jars

@@ -25,6 +25,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContex
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.TitleScreen;
@@ -60,7 +61,7 @@ public final class EyesGameTest implements FabricClientGameTest {
 		context.getInput().resizeWindow(1280, 720);
 		context.waitForScreen(TitleScreen.class);
 		context.waitTicks(60);
-		context.runOnClient(minecraft -> {
+		context.runOnClient((Minecraft minecraft) -> {
 			minecraft.options.guiScale().set(2);
 			minecraft.resizeGui();
 		});
@@ -68,7 +69,7 @@ public final class EyesGameTest implements FabricClientGameTest {
 
 		// Mod Menu's "Configure" opens the wardrobe's settings.
 		if (FabricLoader.getInstance().isModLoaded("modmenu")) {
-			boolean ours = context.computeOnClient(minecraft -> FabricLoader.getInstance()
+			boolean ours = context.computeOnClient((Minecraft minecraft) -> FabricLoader.getInstance()
 				.getEntrypointContainers("modmenu", com.terraformersmc.modmenu.api.ModMenuApi.class).stream()
 				.filter(container -> container.getProvider().getMetadata().getId().equals("mosaicary"))
 				.anyMatch(container -> container.getEntrypoint().getModConfigScreenFactory().create(minecraft.gui.screen())
@@ -79,22 +80,22 @@ public final class EyesGameTest implements FabricClientGameTest {
 		}
 
 		// The settings, as Mod Menu opens them.
-		context.runOnClient(minecraft -> minecraft.gui.setScreen(new SettingsScreen(minecraft.gui.screen())));
+		context.runOnClient((Minecraft minecraft) -> { minecraft.gui.setScreen(new SettingsScreen(minecraft.gui.screen())); });
 		context.waitTicks(10);
 		context.takeScreenshot("eyes-0b-settings");
 
 		// The figure's place and size.
-		context.runOnClient(minecraft -> minecraft.gui.setScreen(new MenuSkinScreen(minecraft.gui.screen(), MenuSkin.Beside.PAUSE)));
+		context.runOnClient((Minecraft minecraft) -> { minecraft.gui.setScreen(new MenuSkinScreen(minecraft.gui.screen(), MenuSkin.Beside.PAUSE)); });
 		context.waitTicks(10);
 		context.takeScreenshot("eyes-1a-figure-screen-pause");
-		context.runOnClient(minecraft -> minecraft.gui.setScreen(new TitleScreen()));
+		context.runOnClient((Minecraft minecraft) -> { minecraft.gui.setScreen(new TitleScreen()); });
 		context.waitTicks(5);
-		context.runOnClient(minecraft -> minecraft.gui.setScreen(new MenuSkinScreen(minecraft.gui.screen(), MenuSkin.Beside.MAIN)));
+		context.runOnClient((Minecraft minecraft) -> { minecraft.gui.setScreen(new MenuSkinScreen(minecraft.gui.screen(), MenuSkin.Beside.MAIN)); });
 		context.waitTicks(10);
 		context.takeScreenshot("eyes-1-figure-screen");
 		// The largest GUI scale the game offers follows from the window, and the figure's place has no say in it.
-		int largest = context.computeOnClient(minecraft -> minecraft.getWindow().calculateScale(0, false));
-		context.runOnClient(minecraft -> {
+		int largest = context.computeOnClient((Minecraft minecraft) -> minecraft.getWindow().calculateScale(0, false));
+		context.runOnClient((Minecraft minecraft) -> {
 			var settings = MosaicaryClient.instance().settings();
 			settings.menuSkinX = -40;
 			settings.menuSkinY = 20;
@@ -103,18 +104,18 @@ public final class EyesGameTest implements FabricClientGameTest {
 		});
 		context.waitTicks(5);
 		context.takeScreenshot("eyes-2-figure-moved-and-larger");
-		int largestAfter = context.computeOnClient(minecraft -> minecraft.getWindow().calculateScale(0, false));
+		int largestAfter = context.computeOnClient((Minecraft minecraft) -> minecraft.getWindow().calculateScale(0, false));
 		System.out.println("eyes test: largest GUI scale before and after moving the figure: " + largest + ", " + largestAfter);
 		if (largest != largestAfter) throw new AssertionError("Moving the figure changed the GUI scales on offer");
 		for (int[] size : new int[][] { { 1280, 720 }, { 951, 588 }, { 903, 447 }, { 634, 392 } }) {
 			context.getInput().resizeWindow(size[0], size[1]);
 			context.waitTicks(5);
-			int most = context.computeOnClient(minecraft -> minecraft.getWindow().calculateScale(0, false));
+			int most = context.computeOnClient((Minecraft minecraft) -> minecraft.getWindow().calculateScale(0, false));
 			System.out.println("eyes test: a window of " + size[0] + " by " + size[1] + " offers GUI scales up to " + most);
 		}
 		context.getInput().resizeWindow(1280, 720);
 		context.waitTicks(5);
-		context.runOnClient(minecraft -> {
+		context.runOnClient((Minecraft minecraft) -> {
 			var settings = MosaicaryClient.instance().settings();
 			settings.menuSkinX = 0;
 			settings.menuSkinY = 0;
@@ -127,7 +128,7 @@ public final class EyesGameTest implements FabricClientGameTest {
 		// Fresh Moves+ put in the run's resource packs, left switched off.
 		String packs = System.getProperty("mosaicary.testPacks");
 		if (packs != null) {
-			context.runOnClient(minecraft -> {
+			context.runOnClient((Minecraft minecraft) -> {
 				Path into = FabricLoader.getInstance().getGameDir().resolve("resourcepacks");
 				try {
 					Files.createDirectories(into);
@@ -139,25 +140,25 @@ public final class EyesGameTest implements FabricClientGameTest {
 				}
 			});
 		}
-		FreshMoves.Status before = context.computeOnClient(minecraft -> {
+		FreshMoves.Status before = context.computeOnClient((Minecraft minecraft) -> {
 			FreshMoves.rescan();
 			return FreshMoves.status();
 		});
 		System.out.println("eyes test: before " + before);
 
 		// The catalogue showing only skins with live eyes.
-		context.runOnClient(minecraft -> {
+		context.runOnClient((Minecraft minecraft) -> {
 			SkinsScreen.query(SkinsScreen.query().withEyes(true));
 			MosaicaryClient.instance().openWardrobe(minecraft.gui.screen());
 		});
 		context.waitForScreen(SkinsScreen.class);
-		context.waitFor(minecraft -> !MosaicaryClient.instance().skins().shelf(SkinsScreen.query()).cards.isEmpty(), 20 * 60);
+		context.waitFor((Minecraft minecraft) -> !MosaicaryClient.instance().skins().shelf(SkinsScreen.query()).cards.isEmpty(), 20 * 60);
 		context.waitTicks(40);
 		context.takeScreenshot("eyes-3-catalogue-live-eyes");
-		int[] card = context.computeOnClient(minecraft -> ((SkinsScreen) minecraft.gui.screen()).cardCenter(0));
+		int[] card = context.computeOnClient((Minecraft minecraft) -> ((SkinsScreen) minecraft.gui.screen()).cardCenter(0));
 		Steps.click(context, card[0], card[1]);
-		context.waitFor(minecraft -> minecraft.gui.screen() instanceof SkinsScreen screen && screen.openCard() != null, 100);
-		context.waitFor(minecraft -> {
+		context.waitFor((Minecraft minecraft) -> minecraft.gui.screen() instanceof SkinsScreen screen && screen.openCard() != null, 100);
+		context.waitFor((Minecraft minecraft) -> {
 			SkinsScreen screen = (SkinsScreen) minecraft.gui.screen();
 			return MosaicaryClient.instance().skins().texture(screen.openCard()).state() != Skins.State.LOADING;
 		}, 20 * 60);
@@ -166,7 +167,7 @@ public final class EyesGameTest implements FabricClientGameTest {
 
 		// The yellow card's own button: switch the pack on, when that is what it offers.
 		if (before.missing().isEmpty() && before.packOff() != null) {
-			double[] on = context.computeOnClient(minecraft -> {
+			double[] on = context.computeOnClient((Minecraft minecraft) -> {
 				for (AbstractWidget widget : Screens.getWidgets(minecraft.gui.screen())) {
 					if (widget instanceof IconButton && widget.getMessage().getString().equals(
 							net.minecraft.network.chat.Component.translatable("mosaicary.eyes.switch_on").getString())) {
@@ -177,20 +178,20 @@ public final class EyesGameTest implements FabricClientGameTest {
 			});
 			if (on == null) throw new AssertionError("No Switch on button on the yellow card");
 			Steps.click(context, on[0], on[1]);
-			context.waitFor(minecraft -> FreshMoves.status().ready(), 20 * 120);
+			context.waitFor((Minecraft minecraft) -> FreshMoves.status().ready(), 20 * 120);
 			// The resources reload behind an overlay; a few seconds for it to go.
 			context.waitTicks(100);
 			context.waitTicks(40);
-			System.out.println("eyes test: after switching on " + context.computeOnClient(minecraft -> FreshMoves.status()));
+			System.out.println("eyes test: after switching on " + context.computeOnClient((Minecraft minecraft) -> FreshMoves.status()));
 			// Facing the viewer and still, so the face can be looked at; then the eyes should be
 			// painted anew every few seconds: a blink, a glance.
-			context.runOnClient(minecraft -> ((SkinsScreen) minecraft.gui.screen()).setView(-5, 0));
-			int first = context.computeOnClient(minecraft -> ((SkinsScreen) minecraft.gui.screen()).eyesPainted());
+			context.runOnClient((Minecraft minecraft) -> ((SkinsScreen) minecraft.gui.screen()).setView(-5, 0));
+			int first = context.computeOnClient((Minecraft minecraft) -> ((SkinsScreen) minecraft.gui.screen()).eyesPainted());
 			for (int i = 0; i < 10; i++) {
 				context.waitTicks(20);
 				context.takeScreenshot("eyes-5-moving-" + i);
 			}
-			int last = context.computeOnClient(minecraft -> ((SkinsScreen) minecraft.gui.screen()).eyesPainted());
+			int last = context.computeOnClient((Minecraft minecraft) -> ((SkinsScreen) minecraft.gui.screen()).eyesPainted());
 			System.out.println("eyes test: eyes painted " + first + " -> " + last + " in ten seconds");
 			if (last - first < 2) throw new AssertionError("The eyes did not move in ten seconds");
 		} else {
@@ -198,11 +199,11 @@ public final class EyesGameTest implements FabricClientGameTest {
 		}
 
 		// The skin with live eyes, kept for the world below.
-		SkinCard liveCard = context.computeOnClient(minecraft -> ((SkinsScreen) minecraft.gui.screen()).openCard());
+		SkinCard liveCard = context.computeOnClient((Minecraft minecraft) -> ((SkinsScreen) minecraft.gui.screen()).openCard());
 
 		// Zoomed in with the wheel over the figure: the head goes on under the card's buttons
 		// rather than being cut off below them.
-		int[] preview = context.computeOnClient(minecraft -> ((SkinsScreen) minecraft.gui.screen()).previewCenter());
+		int[] preview = context.computeOnClient((Minecraft minecraft) -> ((SkinsScreen) minecraft.gui.screen()).previewCenter());
 		double scale = Steps.scale(context);
 		context.getInput().setCursorPos(preview[0] * scale, preview[1] * scale);
 		context.waitTicks(3);
@@ -213,46 +214,46 @@ public final class EyesGameTest implements FabricClientGameTest {
 		// A skin without live eyes, with whatever the run has switched on: its own face, with
 		// nothing a model-replacing mod reads from the skin's empty corners drawn over it.
 		String search = System.getProperty("mosaicary.testSearch");
-		context.runOnClient(minecraft -> {
+		context.runOnClient((Minecraft minecraft) -> {
 			SkinsScreen.query(SkinsScreen.query().withEyes(false).withWords(search == null ? "" : search));
 			((SkinsScreen) minecraft.gui.screen()).closeDetail();
 		});
-		context.waitFor(minecraft -> MosaicaryClient.instance().skins().shelf(SkinsScreen.query()).cards.stream()
+		context.waitFor((Minecraft minecraft) -> MosaicaryClient.instance().skins().shelf(SkinsScreen.query()).cards.stream()
 			.anyMatch(one -> !one.eyes()), 20 * 60);
 		context.waitTicks(20);
 		// One that can show what becomes of an empty corner; many cannot.
-		int cards = context.computeOnClient(minecraft -> MosaicaryClient.instance().skins().shelf(SkinsScreen.query()).cards.size());
+		int cards = context.computeOnClient((Minecraft minecraft) -> MosaicaryClient.instance().skins().shelf(SkinsScreen.query()).cards.size());
 		boolean found = false;
 		for (int i = 0; i < Math.min(cards, 12) && !found; i++) {
 			int index = i;
-			boolean eyes = context.computeOnClient(minecraft -> MosaicaryClient.instance().skins().shelf(SkinsScreen.query()).cards.get(index).eyes());
+			boolean eyes = context.computeOnClient((Minecraft minecraft) -> MosaicaryClient.instance().skins().shelf(SkinsScreen.query()).cards.get(index).eyes());
 			if (eyes) continue;
-			int[] center = context.computeOnClient(minecraft -> ((SkinsScreen) minecraft.gui.screen()).cardCenter(index));
+			int[] center = context.computeOnClient((Minecraft minecraft) -> ((SkinsScreen) minecraft.gui.screen()).cardCenter(index));
 			Steps.click(context, center[0], center[1]);
-			context.waitFor(minecraft -> minecraft.gui.screen() instanceof SkinsScreen screen && screen.openCard() != null, 100);
-			context.waitFor(minecraft -> {
+			context.waitFor((Minecraft minecraft) -> minecraft.gui.screen() instanceof SkinsScreen screen && screen.openCard() != null, 100);
+			context.waitFor((Minecraft minecraft) -> {
 				SkinsScreen screen = (SkinsScreen) minecraft.gui.screen();
 				return MosaicaryClient.instance().skins().texture(screen.openCard()).state() != Skins.State.LOADING;
 			}, 20 * 60);
-			found = context.computeOnClient(minecraft -> {
+			found = context.computeOnClient((Minecraft minecraft) -> {
 				SkinsScreen screen = (SkinsScreen) minecraft.gui.screen();
 				// A skin asked for by name on the command line is taken as it is.
 				return search != null || showsEmptyCorners(MosaicaryClient.instance().skins().texture(screen.openCard()).pixels());
 			});
 			if (!found) {
-				context.runOnClient(minecraft -> ((SkinsScreen) minecraft.gui.screen()).closeDetail());
+				context.runOnClient((Minecraft minecraft) -> ((SkinsScreen) minecraft.gui.screen()).closeDetail());
 				context.waitTicks(10);
 			}
 		}
 		if (!found) throw new AssertionError("No skin among the first cards shows what becomes of an empty corner");
-		context.runOnClient(minecraft -> ((SkinsScreen) minecraft.gui.screen()).setView(-5, 0));
+		context.runOnClient((Minecraft minecraft) -> ((SkinsScreen) minecraft.gui.screen()).setView(-5, 0));
 		context.waitTicks(20);
 		context.takeScreenshot("eyes-7-plain-skin-front");
-		SkinCard plainOpen = context.computeOnClient(minecraft -> ((SkinsScreen) minecraft.gui.screen()).openCard());
+		SkinCard plainOpen = context.computeOnClient((Minecraft minecraft) -> ((SkinsScreen) minecraft.gui.screen()).openCard());
 
 		// The legs up close, moved into view with the right button: where the two legs overlap and
 		// the jacket meets them, parts lying in one plane must not flicker as the figure turns.
-		int[] held = context.computeOnClient(minecraft -> ((SkinsScreen) minecraft.gui.screen()).previewCenter());
+		int[] held = context.computeOnClient((Minecraft minecraft) -> ((SkinsScreen) minecraft.gui.screen()).previewCenter());
 		double guiScale = Steps.scale(context);
 		context.getInput().setCursorPos(held[0] * guiScale, held[1] * guiScale);
 		context.waitTicks(3);
@@ -265,19 +266,19 @@ public final class EyesGameTest implements FabricClientGameTest {
 		context.getInput().releaseMouse(InputConstants.MOUSE_BUTTON_RIGHT);
 		context.waitTicks(2);
 		for (int yaw : new int[] { 0, 8, 17, 26, 35, -12, -24 }) {
-			context.runOnClient(minecraft -> ((SkinsScreen) minecraft.gui.screen()).setView(-5, yaw));
+			context.runOnClient((Minecraft minecraft) -> ((SkinsScreen) minecraft.gui.screen()).setView(-5, yaw));
 			context.waitTicks(3);
 			context.takeScreenshot("eyes-7b-legs-near-" + (yaw < 0 ? "m" + -yaw : "" + yaw));
 		}
-		boolean ready = context.computeOnClient(minecraft -> FreshMoves.status().ready());
+		boolean ready = context.computeOnClient((Minecraft minecraft) -> FreshMoves.status().ready());
 
 		// The catalogue of live eyes again, with the pack on: the cards' eyes move.
 		if (ready) {
-			context.runOnClient(minecraft -> {
+			context.runOnClient((Minecraft minecraft) -> {
 				SkinsScreen.query(SkinsScreen.query().withEyes(true).withWords(""));
 				((SkinsScreen) minecraft.gui.screen()).closeDetail();
 			});
-			context.waitFor(minecraft -> !MosaicaryClient.instance().skins().shelf(SkinsScreen.query()).cards.isEmpty(), 20 * 60);
+			context.waitFor((Minecraft minecraft) -> !MosaicaryClient.instance().skins().shelf(SkinsScreen.query()).cards.isEmpty(), 20 * 60);
 			context.getInput().setCursorPos(0, 0);
 			context.waitTicks(60);
 			for (int i = 0; i < 16; i++) {
@@ -287,13 +288,13 @@ public final class EyesGameTest implements FabricClientGameTest {
 		}
 
 		// A skin that players without the mod see otherwise, marked as such: on its card and in its panel.
-		context.runOnClient(minecraft -> {
+		context.runOnClient((Minecraft minecraft) -> {
 			SkinsScreen.query(SkinsScreen.query().withEyes(false).withWords(""));
 			((SkinsScreen) minecraft.gui.screen()).closeDetail();
 		});
-		context.waitFor(minecraft -> !MosaicaryClient.instance().skins().shelf(SkinsScreen.query()).cards.isEmpty(), 20 * 60);
-		context.waitFor(minecraft -> ((SkinsScreen) minecraft.gui.screen()).cardsRead(), 20 * 90);
-		int clear = context.computeOnClient(minecraft -> {
+		context.waitFor((Minecraft minecraft) -> !MosaicaryClient.instance().skins().shelf(SkinsScreen.query()).cards.isEmpty(), 20 * 60);
+		context.waitFor((Minecraft minecraft) -> ((SkinsScreen) minecraft.gui.screen()).cardsRead(), 20 * 90);
+		int clear = context.computeOnClient((Minecraft minecraft) -> {
 			var shelved = MosaicaryClient.instance().skins().shelf(SkinsScreen.query()).cards;
 			for (int i = 0; i < shelved.size(); i++) {
 				if (MosaicaryClient.instance().skins().look(shelved.get(i)).seeThrough()) return i;
@@ -305,23 +306,23 @@ public final class EyesGameTest implements FabricClientGameTest {
 		SkinCard clearCard = null;
 		if (clear >= 0) {
 			int shownCard = clear;
-			clearCard = context.computeOnClient(minecraft -> MosaicaryClient.instance().skins().shelf(SkinsScreen.query()).cards.get(shownCard));
+			clearCard = context.computeOnClient((Minecraft minecraft) -> MosaicaryClient.instance().skins().shelf(SkinsScreen.query()).cards.get(shownCard));
 			SkinCard opening = clearCard;
-			context.runOnClient(minecraft -> {
+			context.runOnClient((Minecraft minecraft) -> {
 				SkinsScreen screen = (SkinsScreen) minecraft.gui.screen();
 				screen.openCard(opening);
 				screen.setView(-5, 20);
 			});
-			context.waitFor(minecraft -> MosaicaryClient.instance().skins().texture(opening).state() != Skins.State.LOADING, 20 * 60);
+			context.waitFor((Minecraft minecraft) -> MosaicaryClient.instance().skins().texture(opening).state() != Skins.State.LOADING, 20 * 60);
 			context.waitTicks(20);
 			context.takeScreenshot("eyes-7e-see-through-skin");
-			context.runOnClient(minecraft -> ((SkinsScreen) minecraft.gui.screen()).closeDetail());
+			context.runOnClient((Minecraft minecraft) -> ((SkinsScreen) minecraft.gui.screen()).closeDetail());
 			context.waitTicks(5);
 		}
 
 		// Importing a file: the wardrobe's button opens the window, a click on the skin takes it.
 		Path importing = FabricLoader.getInstance().getGameDir().resolve("import-test");
-		String pickedName = context.computeOnClient(minecraft -> {
+		String pickedName = context.computeOnClient((Minecraft minecraft) -> {
 			try {
 				Files.createDirectories(importing.resolve("a folder"));
 				Path kept = FabricLoader.getInstance().getGameDir().resolve("mosaicary/cache/skins/files");
@@ -336,38 +337,41 @@ public final class EyesGameTest implements FabricClientGameTest {
 			SkinFileScreen.startAt(importing);
 			return "my skin.png";
 		});
-		context.runOnClient(minecraft -> {
+		context.runOnClient((Minecraft minecraft) -> {
 			SkinsScreen screen = (SkinsScreen) minecraft.gui.screen();
 			minecraft.gui.setScreen(new SkinFileScreen(screen, screen.skins(), file -> screen.onFilesDrop(List.of(file))));
 		});
-		context.waitFor(minecraft -> minecraft.gui.screen() instanceof SkinFileScreen files && files.itemCenter(pickedName) != null, 20 * 10);
+		context.waitFor((Minecraft minecraft) -> minecraft.gui.screen() instanceof SkinFileScreen files && files.itemCenter(pickedName) != null, 20 * 10);
 		context.waitTicks(20);
 		context.takeScreenshot("eyes-7f-import-window");
-		int[] picked = context.computeOnClient(minecraft -> ((SkinFileScreen) minecraft.gui.screen()).itemCenter(pickedName));
-		int before2 = context.computeOnClient(minecraft -> MosaicaryClient.instance().skins().wardrobe().shown().size());
+		int[] picked = context.computeOnClient((Minecraft minecraft) -> ((SkinFileScreen) minecraft.gui.screen()).itemCenter(pickedName));
+		int before2 = context.computeOnClient((Minecraft minecraft) -> MosaicaryClient.instance().skins().wardrobe().shown().size());
 		Steps.click(context, picked[0], picked[1]);
-		context.waitFor(minecraft -> minecraft.gui.screen() instanceof SkinsScreen
+		context.waitFor((Minecraft minecraft) -> minecraft.gui.screen() instanceof SkinsScreen
 			&& MosaicaryClient.instance().skins().wardrobe().shown().size() > before2, 20 * 10);
 		context.waitTicks(20);
 		context.takeScreenshot("eyes-7g-imported");
 		System.out.println("eyes test: imported a file: my skins " + before2 + " -> "
-			+ context.computeOnClient(minecraft -> MosaicaryClient.instance().skins().wardrobe().shown().size()));
+			+ context.computeOnClient((Minecraft minecraft) -> MosaicaryClient.instance().skins().wardrobe().shown().size()));
 
 		// A file with a background behind everything, as some editors save one: imported, it comes
 		// out with its corners empty, so that Fresh Moves has no black to draw over the face.
 		Path filled = importing.resolve("filled corners.png");
 		String filledName = "filled corners";
-		context.runOnClient(minecraft -> {
+		context.runOnClient((Minecraft minecraft) -> {
 			try (NativeImage image = NativeImage.read(Files.readAllBytes(importing.resolve("my skin.png")))) {
 				for (int y = 0; y < 8; y++) for (int x = 0; x < 8; x++) image.setPixel(x, y, 0xFF000000);
+				// One pixel of the body changed too: if the skin taken above had filled corners itself,
+				// emptying them would make this file the same as that one, and My skins keeps a skin once.
+				image.setPixel(20, 20, 0xFF123456);
 				image.writeToFile(filled);
 			} catch (java.io.IOException failed) {
 				throw new java.io.UncheckedIOException(failed);
 			}
 			((SkinsScreen) minecraft.gui.screen()).onFilesDrop(List.of(filled));
 		});
-		context.waitFor(minecraft -> MosaicaryClient.instance().skins().wardrobe().shown().stream().anyMatch(one -> filledName.equals(one.name)), 20 * 10);
-		boolean emptied = context.computeOnClient(minecraft -> {
+		context.waitFor((Minecraft minecraft) -> MosaicaryClient.instance().skins().wardrobe().shown().stream().anyMatch(one -> filledName.equals(one.name)), 20 * 10);
+		boolean emptied = context.computeOnClient((Minecraft minecraft) -> {
 			Wardrobe wardrobe = MosaicaryClient.instance().skins().wardrobe();
 			Wardrobe.Entry entry = wardrobe.shown().stream().filter(one -> filledName.equals(one.name)).findFirst().orElseThrow();
 			try (NativeImage image = NativeImage.read(Files.readAllBytes(wardrobe.fileOf(entry)))) {
@@ -380,11 +384,11 @@ public final class EyesGameTest implements FabricClientGameTest {
 		if (!emptied) throw new AssertionError("An imported file kept its filled corner");
 
 		// Game tests end on the main menu.
-		context.runOnClient(minecraft -> minecraft.gui.setScreen(new TitleScreen()));
+		context.runOnClient((Minecraft minecraft) -> { minecraft.gui.setScreen(new TitleScreen()); });
 		context.waitTicks(5);
 
 		// The same for a skin the game downloads itself: whatever path it comes by.
-		boolean downloadEmptied = context.computeOnClient(minecraft -> {
+		boolean downloadEmptied = context.computeOnClient((Minecraft minecraft) -> {
 			try {
 				NativeImage image = new NativeImage(64, 64, true);
 				for (int y = 0; y < 8; y++) for (int x = 0; x < 8; x++) image.setPixel(x, y, 0xFF000000);
@@ -402,7 +406,7 @@ public final class EyesGameTest implements FabricClientGameTest {
 		if (!downloadEmptied) throw new AssertionError("A downloaded skin kept its filled corner");
 
 		// The game's own download keeps a skin's see-through places, with or without Entity Texture Features.
-		boolean kept = context.computeOnClient(minecraft -> {
+		boolean kept = context.computeOnClient((Minecraft minecraft) -> {
 			try (NativeImage image = new NativeImage(64, 64, true)) {
 				image.setPixel(8, 8, 0x00000000);
 				image.setPixel(24, 24, 0x40FF0000);
@@ -424,7 +428,7 @@ public final class EyesGameTest implements FabricClientGameTest {
 			try (TestSingleplayerContext world = context.worldBuilder().create()) {
 				world.getConnection().waitForChunksRender();
 				context.getInput().lookAt(0, 0);
-				context.runOnClient(minecraft -> {
+				context.runOnClient((Minecraft minecraft) -> {
 					minecraft.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
 					minecraft.options.fov().set(30);
 					Skins skins = MosaicaryClient.instance().skins();
@@ -437,21 +441,21 @@ public final class EyesGameTest implements FabricClientGameTest {
 				context.waitForScreen(PauseScreen.class);
 				context.waitTicks(10);
 				context.takeScreenshot("eyes-8b-pause-menu");
-				if (context.computeOnClient(minecraft -> MenuSkin.on(minecraft.gui.screen())) == null) {
+				if (context.computeOnClient((Minecraft minecraft) -> MenuSkin.on(minecraft.gui.screen())) == null) {
 					throw new AssertionError("No figure beside the pause menu");
 				}
 				context.getInput().pressKey(InputConstants.KEY_ESCAPE);
 				context.waitTicks(10);
 				if (clearCard != null) {
 					SkinCard wearing = clearCard;
-					context.runOnClient(minecraft -> {
+					context.runOnClient((Minecraft minecraft) -> {
 						Skins skins = MosaicaryClient.instance().skins();
 						skins.showFetched(minecraft.getUser().getProfileId(), "clear", skins.texture(wearing));
 					});
 					context.waitTicks(40);
 					context.takeScreenshot("eyes-8c-world-see-through");
 				}
-				context.runOnClient(minecraft -> {
+				context.runOnClient((Minecraft minecraft) -> {
 					Skins skins = MosaicaryClient.instance().skins();
 					skins.showFetched(minecraft.getUser().getProfileId(), "live", skins.texture(liveCard));
 				});
@@ -461,7 +465,7 @@ public final class EyesGameTest implements FabricClientGameTest {
 					context.waitTicks(5);
 					context.takeScreenshot("eyes-9-world-live-eyes-" + i);
 				}
-				context.runOnClient(minecraft -> {
+				context.runOnClient((Minecraft minecraft) -> {
 					minecraft.options.setCameraType(CameraType.FIRST_PERSON);
 					minecraft.options.fov().set(70);
 				});
@@ -470,15 +474,15 @@ public final class EyesGameTest implements FabricClientGameTest {
 			// The figure beside the main menu, wearing the same skin: its eyes move too.
 			context.waitForScreen(TitleScreen.class);
 			context.waitTicks(40);
-			int firstOnMenu = context.computeOnClient(minecraft -> MenuSkin.eyesPainted());
+			int firstOnMenu = context.computeOnClient((Minecraft minecraft) -> MenuSkin.eyesPainted());
 			for (int i = 0; i < 6; i++) {
 				context.waitTicks(40);
 				context.takeScreenshot("eyes-10-menu-figure-" + i);
 			}
-			int lastOnMenu = context.computeOnClient(minecraft -> MenuSkin.eyesPainted());
+			int lastOnMenu = context.computeOnClient((Minecraft minecraft) -> MenuSkin.eyesPainted());
 			System.out.println("eyes test: the menu figure's eyes painted " + firstOnMenu + " -> " + lastOnMenu + " in twelve seconds");
 			if (lastOnMenu - firstOnMenu < 2) throw new AssertionError("The menu figure's eyes did not move");
-			context.runOnClient(minecraft -> MosaicaryClient.instance().skins().showOther(minecraft.getUser().getProfileId(), null, null));
+			context.runOnClient((Minecraft minecraft) -> MosaicaryClient.instance().skins().showOther(minecraft.getUser().getProfileId(), null, null));
 		}
 	}
 }

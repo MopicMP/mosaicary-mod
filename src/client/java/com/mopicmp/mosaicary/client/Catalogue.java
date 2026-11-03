@@ -1,3 +1,5 @@
+//#if MC>=12111
+// Worn models and their catalogue are built from 1.21.11 on (docs/mod-versions-plan.md).
 package com.mopicmp.mosaicary.client;
 
 import java.io.IOException;
@@ -498,3 +500,4 @@ public final class Catalogue {
 		minecraft.gui.chatListener().handleSystemMessage(line, false);
 	}
 }
+//#endif

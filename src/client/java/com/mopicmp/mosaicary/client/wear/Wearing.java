@@ -1,9 +1,12 @@
+//#if MC>=12111
+// Worn models and their catalogue are built from 1.21.11 on (docs/mod-versions-plan.md).
 package com.mopicmp.mosaicary.client.wear;
 
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -43,7 +46,7 @@ import net.minecraft.world.item.ItemUseAnimation;
  * and so no confirmed age. The local player cannot wear one either, because the
  * catalogue does not list them without a sign-in.
  */
-public final class Wearing {
+public final class Wearing implements WornModels {
 
 	/**
 	 * What the renderer needs for one player this frame.
@@ -51,10 +54,6 @@ public final class Wearing {
 	 * @param scale the size the model is drawn at, over its own size
 	 */
 	public record Worn(ModelMesh mesh, Posing posing, boolean crouching, float scale) { }
-
-	/** The sizes a player may pick, over the model's own size. */
-	public static final double SCALE_MIN = 0.1;
-	public static final double SCALE_MAX = 10;
 
 	/**
 	 * The tallest another player's model is drawn, in blocks, whatever size its wearer
@@ -75,11 +74,6 @@ public final class Wearing {
 	/** The worn model's frame in a render state, or null. */
 	public static Worn wornOf(EntityRenderState state) {
 		return ((Carrier) state).mosaicary$worn();
-	}
-
-	/** Told whenever the local player's model or its roles change, to pass it on. */
-	public interface Listener {
-		void changed(ModelCard worn, Map<String, String> roles);
 	}
 
 	/**
@@ -134,6 +128,7 @@ public final class Wearing {
 		if (settings.worn != null) catalogue.pin(settings.worn.card());
 	}
 
+	@Override
 	public void listen(Listener listener) {
 		listeners.add(listener);
 	}
@@ -147,6 +142,12 @@ public final class Wearing {
 	// ------------------------------------------------------------------ the local player
 
 	/** The model the local player wears, or null. */
+	@Override
+	public List<ModelCard> cards() {
+		return catalogue.cards();
+	}
+
+	@Override
 	public ModelCard worn() {
 		return settings.worn == null ? null : settings.worn.card();
 	}
@@ -219,6 +220,7 @@ public final class Wearing {
 	 * the changed ones: another player may have an older mod whose names fill in
 	 * differently, and what they see should be what this player chose.
 	 */
+	@Override
 	public Map<String, String> rolesToSend(ModelCard card) {
 		Catalogue.Model model = catalogue.model(card);
 		if (model.state() != Catalogue.State.READY) {
@@ -229,20 +231,15 @@ public final class Wearing {
 
 	// ------------------------------------------------------------------ size
 
-	/** A size kept within what can be picked, to a thousandth, as the site keeps it. */
-	public static double cleanScale(double scale) {
-		if (!Double.isFinite(scale)) return 1;
-		return Math.round(Math.max(SCALE_MIN, Math.min(SCALE_MAX, scale)) * 1000) / 1000.0;
-	}
-
 	/** The size the local player picked for a model, over the model's own size; 1 when none. */
+	@Override
 	public double scaleFor(ModelCard card) {
 		return settings.scales.getOrDefault(player() + "/" + card.id(), 1.0);
 	}
 
 	/** Sets the size for a model; the model's own size is not stored. */
 	public void setScale(ModelCard card, double scale) {
-		double clean = cleanScale(scale);
+		double clean = WornModels.cleanScale(scale);
 		String key = player() + "/" + card.id();
 		if (clean == 1) settings.scales.remove(key);
 		else settings.scales.put(key, clean);
@@ -253,6 +250,7 @@ public final class Wearing {
 	// ------------------------------------------------------------------ other players
 
 	/** Sets the model, roles and size another player wears, or clears them with a null card. */
+	@Override
 	public void setOther(UUID player, ModelCard card, Map<String, String> roles, double scale) {
 		ModelCard before = others.get(player);
 		if (card == null || card.adult()) {
@@ -265,7 +263,7 @@ public final class Wearing {
 		if (before != null && !before.id().equals(card.id())) catalogue.unpin(before);
 		others.put(player, card);
 		otherRoles.put(player, roles == null ? Map.of() : roles);
-		otherScales.put(player, cleanScale(scale));
+		otherScales.put(player, WornModels.cleanScale(scale));
 		catalogue.pin(card);
 		catalogue.model(card);
 	}
@@ -331,8 +329,12 @@ public final class Wearing {
 			doing.right = right;
 			doing.rightSince = now;
 		}
+		//#if MC>=260100
 		InteractionHand swingHand = state.currentSwing != null ? state.currentSwing.hand() : InteractionHand.MAIN_HAND;
 		HumanoidArm swingArm = swingHand == InteractionHand.MAIN_HAND ? state.mainArm : state.mainArm.getOpposite();
+		//#else
+		//$$ HumanoidArm swingArm = state.attackArm;
+		//#endif
 		Motion.Arms arms = new Motion.Arms(left, right, swingArm == HumanoidArm.LEFT ? Roles.Side.LEFT : Roles.Side.RIGHT,
 			now - doing.leftSince, now - doing.rightSince);
 
@@ -401,7 +403,7 @@ public final class Wearing {
 	 * drawn taller than {@link #OTHERS_TALLEST} blocks.
 	 */
 	static double drawnScale(double picked, ModelMesh mesh, boolean local) {
-		double scale = cleanScale(picked);
+		double scale = WornModels.cleanScale(picked);
 		if (local) return scale;
 		float[] box = mesh.bounds();
 		if (box == null) return scale;
@@ -436,3 +438,4 @@ public final class Wearing {
 		return rigs.computeIfAbsent(mesh, m -> Rig.of(m.model()));
 	}
 }
+//#endif

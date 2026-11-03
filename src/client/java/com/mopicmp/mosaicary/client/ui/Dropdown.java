@@ -10,7 +10,9 @@ import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.narration.NarratedElementType;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
+//#if MC>=12111
 import net.minecraft.client.input.MouseButtonEvent;
+//#endif
 import net.minecraft.network.chat.Component;
 
 /**
@@ -82,8 +84,13 @@ public class Dropdown<T> extends AbstractWidget {
 		open = false;
 	}
 
+	//#if MC>=12111
 	@Override
 	public void onClick(MouseButtonEvent event, boolean doubleClick) {
+	//#else
+	//$$ @Override
+	//$$ public void onClick(double mouseX, double mouseY) {
+	//#endif
 		open = !open;
 		// Opened with the chosen value in view.
 		if (open) first = Math.max(0, selected - visibleRows() / 2);
@@ -168,7 +175,8 @@ public class Dropdown<T> extends AbstractWidget {
 			if (hovered) graphics.fill(left + 1, y, left + width - 1, y + ROW, Theme.CARD_HOVER);
 			int ink = i == selected ? Theme.ACCENT : hovered ? Theme.TEXT : Theme.TEXT_DIM;
 			if (i == selected) graphics.fill(left + 1, y, left + 3, y + ROW, Theme.ACCENT);
-			graphics.text(font, options.get(i).label(), left + 8, y + (ROW - font.lineHeight) / 2 + 1, ink, false);
+			Component label = options.get(i).label();
+			graphics.text(font, label, left + 8, y + (ROW - font.lineHeight) / 2 + 1, ink, false);
 		}
 		// A thin bar on the right says the list goes on.
 		if (rows < options.size()) {

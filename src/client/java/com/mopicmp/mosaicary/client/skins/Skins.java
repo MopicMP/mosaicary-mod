@@ -22,9 +22,9 @@ import com.mopicmp.mosaicary.Mosaicary;
 import com.mopicmp.mosaicary.client.render.Pictures;
 import com.mopicmp.mosaicary.client.site.SiteClient;
 import com.mopicmp.mosaicary.wardrobe.Wardrobe;
+import com.mopicmp.mosaicary.client.render.Textures;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.PlayerModelType;
 
@@ -232,7 +232,7 @@ public final class Skins {
 				Identifier id2 = Mosaicary.id("skins/picture/" + safe(key));
 				int w = image.getWidth();
 				int h = image.getHeight();
-				minecraft.getTextureManager().register(id2, new DynamicTexture(() -> "Mosaicary skin picture", image));
+				minecraft.getTextureManager().register(id2, Textures.of(() -> "Mosaicary skin picture", image));
 				pictures.put(key, new Picture(State.READY, id2, w, h));
 			}));
 		return loading;
@@ -280,7 +280,7 @@ public final class Skins {
 			for (int x = 0; x < SkinFigure.SIZE; x++) image.setPixel(x, y, figure[y * SkinFigure.SIZE + x]);
 		}
 		Identifier id = Mosaicary.id("skins/picture/" + safe(key));
-		Minecraft.getInstance().getTextureManager().register(id, new DynamicTexture(() -> "Mosaicary skin figure", image));
+		Minecraft.getInstance().getTextureManager().register(id, Textures.of(() -> "Mosaicary skin figure", image));
 		return new Picture(State.READY, id, SkinFigure.SIZE, SkinFigure.SIZE);
 	}
 
@@ -420,7 +420,7 @@ public final class Skins {
 			for (int x = 0; x < 64; x++) image.setPixel(x, y, pixels[y * 64 + x]);
 		}
 		Identifier id = Mosaicary.id("skins/texture/" + safe(key));
-		Minecraft.getInstance().getTextureManager().register(id, new DynamicTexture(() -> "Mosaicary skin", image));
+		Minecraft.getInstance().getTextureManager().register(id, Textures.of(() -> "Mosaicary skin", image));
 		return new Texture(State.READY, id, model, pixels, null);
 	}
 

@@ -1,3 +1,5 @@
+//#if MC>=12111
+// Worn models and their catalogue are built from 1.21.11 on (docs/mod-versions-plan.md).
 package com.mopicmp.mosaicary.client.mixin;
 
 import org.spongepowered.asm.mixin.Mixin;
@@ -14,7 +16,12 @@ import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
 import net.minecraft.client.renderer.rendertype.RenderType;
+//#if MC>=260100
 import net.minecraft.client.renderer.texture.UvMapping;
+//#else
+//$$ import net.minecraft.client.renderer.feature.ModelFeatureRenderer;
+//$$ import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+//#endif
 
 /**
  * Draws a worn model in place of the player model.
@@ -33,6 +40,8 @@ public abstract class LivingEntityRendererMixin {
 
 	// The method itself and not the bridge the compiler adds for the generic state, which has the
 	// same name; the preprocessor refuses a name that could be either.
+	// The strings are written out for each version: the preprocessor does not rewrite a string made of parts.
+	//#if MC>=260100
 	@WrapOperation(method = "submit(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;"
 		+ "Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;"
 		+ "Lnet/minecraft/client/renderer/state/level/CameraRenderState;)V", at = @At(value = "INVOKE",
@@ -40,9 +49,22 @@ public abstract class LivingEntityRendererMixin {
 	private void mosaicary$drawWorn(SubmitNodeCollector collector, Model<?> model, Object state, PoseStack poseStack,
 			RenderType renderType, int light, int overlay, int tint, UvMapping uvMapping, int outline,
 			Operation<Void> original) {
+	//#else
+	//$$ @WrapOperation(method = "submit(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;"
+	//$$ 	+ "Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;"
+	//$$ 	+ "Lnet/minecraft/client/renderer/state/CameraRenderState;)V", at = @At(value = "INVOKE",
+	//$$ 	target = "Lnet/minecraft/client/renderer/SubmitNodeCollector;submitModel(Lnet/minecraft/client/model/Model;Ljava/lang/Object;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/rendertype/RenderType;IIILnet/minecraft/client/renderer/texture/TextureAtlasSprite;ILnet/minecraft/client/renderer/feature/ModelFeatureRenderer$CrumblingOverlay;)V"))
+	//$$ private void mosaicary$drawWorn(SubmitNodeCollector collector, Model<?> model, Object state, PoseStack poseStack,
+	//$$ 		RenderType renderType, int light, int overlay, int tint, TextureAtlasSprite sprite, int outline,
+	//$$ 		ModelFeatureRenderer.CrumblingOverlay crumbling, Operation<Void> original) {
+	//#endif
 		Wearing.Worn worn = state instanceof EntityRenderState entity ? Wearing.wornOf(entity) : null;
 		if (worn == null) {
+			//#if MC>=260100
 			original.call(collector, model, state, poseStack, renderType, light, overlay, tint, uvMapping, outline);
+			//#else
+			//$$ original.call(collector, model, state, poseStack, renderType, light, overlay, tint, sprite, outline, crumbling);
+			//#endif
 			return;
 		}
 		poseStack.pushPose();
@@ -60,3 +82,4 @@ public abstract class LivingEntityRendererMixin {
 		poseStack.popPose();
 	}
 }
+//#endif

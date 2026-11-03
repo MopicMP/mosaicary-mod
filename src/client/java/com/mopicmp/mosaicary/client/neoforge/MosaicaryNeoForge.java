@@ -27,7 +27,11 @@
 //$$ 	public MosaicaryNeoForge(IEventBus modBus, ModContainer container) {
 //$$ 		Platform.listen(modBus);
 //$$ 		new Mosaicary().onInitialize();
+//#if MC>=12111
 //$$ 		if (FMLEnvironment.getDist() == Dist.CLIENT) Client.init(modBus, container);
+//#else
+//$$ 		if (FMLEnvironment.dist == Dist.CLIENT) Client.init(modBus, container);
+//#endif
 //$$ 	}
 //$$
 //$$ 	/** Apart, so that a server never loads the client's classes. */

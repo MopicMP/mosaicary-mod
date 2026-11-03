@@ -6,8 +6,12 @@ import java.util.List;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.toasts.Toast;
+//#if MC>=12111
 import net.minecraft.client.gui.components.toasts.ToastManager;
 import net.minecraft.client.renderer.RenderPipelines;
+//#else
+//$$ import net.minecraft.client.gui.components.toasts.ToastComponent;
+//#endif
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.FormattedCharSequence;
@@ -29,7 +33,9 @@ public final class HintToast implements Toast {
 	private final List<FormattedCharSequence> lines = new ArrayList<>();
 	private final int titleLines;
 	private final long showForMs;
+	//#if MC>=12111
 	private Visibility visibility = Visibility.SHOW;
+	//#endif
 
 	public HintToast(Font font, Component title, Component message, long showForMs) {
 		lines.addAll(font.split(title, TEXT_WIDTH));
@@ -38,6 +44,8 @@ public final class HintToast implements Toast {
 		this.showForMs = showForMs;
 	}
 
+	// Before 1.21.2 a toast is drawn and says whether it stays in one call.
+	//#if MC>=12111
 	@Override
 	public Visibility getWantedVisibility() {
 		return visibility;
@@ -49,13 +57,25 @@ public final class HintToast implements Toast {
 	}
 
 	@Override
+	public void extractRenderState(GuiGraphicsExtractor graphics, Font font, long fullyVisibleForMs) {
+		graphics.blitSprite(RenderPipelines.GUI_TEXTURED, BACKGROUND, 0, 0, width(), height());
+		draw(graphics, font);
+	}
+	//#else
+	//$$ @Override
+	//$$ public Visibility render(GuiGraphics graphics, ToastComponent toasts, long fullyVisibleForMs) {
+	//$$ 	graphics.blitSprite(BACKGROUND, 0, 0, width(), height());
+	//$$ 	draw(graphics, toasts.getMinecraft().font);
+	//$$ 	return fullyVisibleForMs > showForMs ? Visibility.HIDE : Visibility.SHOW;
+	//$$ }
+	//#endif
+
+	@Override
 	public int height() {
 		return 7 + Math.max(lines.size(), 2) * 11 + 3;
 	}
 
-	@Override
-	public void extractRenderState(GuiGraphicsExtractor graphics, Font font, long fullyVisibleForMs) {
-		graphics.blitSprite(RenderPipelines.GUI_TEXTURED, BACKGROUND, 0, 0, width(), height());
+	private void draw(GuiGraphicsExtractor graphics, Font font) {
 		Icons.draw(graphics, Icon.CATALOGUE, 8, 8, TITLE_COLOUR);
 		int textTop = 7 + (Math.max(lines.size(), 2) * 11 - lines.size() * 11) / 2;
 		for (int i = 0; i < lines.size(); i++) {

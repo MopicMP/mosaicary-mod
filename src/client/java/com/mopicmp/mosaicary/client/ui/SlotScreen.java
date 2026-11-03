@@ -1,3 +1,5 @@
+//#if MC>=12111
+// Worn models and their catalogue are built from 1.21.11 on (docs/mod-versions-plan.md).
 package com.mopicmp.mosaicary.client.ui;
 
 import com.mojang.blaze3d.platform.InputConstants;
@@ -72,7 +74,7 @@ public final class SlotScreen extends Screen {
 
 	@Override
 	public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
-		if (CatalogueScreen.hideMouse) {
+		if (Theme.hideMouse) {
 			mouseX = -10000;
 			mouseY = -10000;
 		}
@@ -157,3 +159,4 @@ public final class SlotScreen extends Screen {
 		minecraft.gui.setScreen(parent);
 	}
 }
+//#endif

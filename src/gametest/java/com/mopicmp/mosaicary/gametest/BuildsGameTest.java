@@ -1,3 +1,5 @@
+//#if MC>=12111
+// Worn models and their catalogue are built from 1.21.11 on (docs/mod-versions-plan.md).
 package com.mopicmp.mosaicary.gametest;
 
 import java.io.IOException;
@@ -18,6 +20,7 @@ import com.mopicmp.mosaicary.client.ui.IconButton;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
+import net.minecraft.client.Minecraft;
 
 /**
  * Builds on their own shelf, and installed for the mods that place them, with real input.
@@ -42,8 +45,8 @@ public final class BuildsGameTest implements FabricClientGameTest {
 			long mixed = models.stream().filter(ModelCard::isBuild).count();
 			if (mixed > 0) throw new AssertionError("The models' shelf shows " + mixed + " builds");
 
-			Steps.click(context, context.computeOnClient(minecraft -> screen(minecraft.gui.screen()).buildsButton()));
-			context.waitFor(minecraft -> MosaicaryClient.instance().catalogue().picturesSettled(screen(minecraft.gui.screen()).shown()), 20 * 120);
+			Steps.click(context, context.computeOnClient((Minecraft minecraft) -> screen(minecraft.gui.screen()).buildsButton()));
+			context.waitFor((Minecraft minecraft) -> MosaicaryClient.instance().catalogue().picturesSettled(screen(minecraft.gui.screen()).shown()), 20 * 120);
 			context.waitTicks(10);
 			List<ModelCard> builds = shown(context);
 			if (builds.isEmpty() || !builds.stream().allMatch(ModelCard::isBuild)) throw new AssertionError("The builds' shelf shows " + builds);
@@ -51,30 +54,30 @@ public final class BuildsGameTest implements FabricClientGameTest {
 
 			// No mod here places builds: Install is there, inactive, and says why.
 			ModelCard card = Steps.openModel(context, builds.get(0).id());
-			context.waitFor(minecraft -> MosaicaryClient.instance().catalogue().picture(card).state() != Catalogue.State.LOADING, 20 * 60);
-			IconButton install = context.computeOnClient(minecraft -> screen(minecraft.gui.screen()).downloadButton());
+			context.waitFor((Minecraft minecraft) -> MosaicaryClient.instance().catalogue().picture(card).state() != Catalogue.State.LOADING, 20 * 60);
+			IconButton install = context.computeOnClient((Minecraft minecraft) -> screen(minecraft.gui.screen()).downloadButton());
 			if (install == null || install.active) throw new AssertionError("Install is offered with no mod to install into");
 			hover(context, install);
 			context.takeScreenshot("mosaicary-builds-2-no-mod-to-place-it");
 
 			// All three, as if they were installed; the view is opened again to read them.
-			context.runOnClient(minecraft -> MosaicaryClient.instance().catalogue().site().placers(List.of(Builds.Format.values())));
+			context.runOnClient((Minecraft minecraft) -> MosaicaryClient.instance().catalogue().site().placers(List.of(Builds.Format.values())));
 			context.getInput().pressKey(InputConstants.KEY_ESCAPE);
-			context.waitFor(minecraft -> minecraft.gui.screen() instanceof CatalogueScreen screen && screen.openCard() == null, 100);
+			context.waitFor((Minecraft minecraft) -> minecraft.gui.screen() instanceof CatalogueScreen screen && screen.openCard() == null, 100);
 			Steps.openModel(context, card.id());
-			install = context.computeOnClient(minecraft -> screen(minecraft.gui.screen()).downloadButton());
+			install = context.computeOnClient((Minecraft minecraft) -> screen(minecraft.gui.screen()).downloadButton());
 			if (!install.active) throw new AssertionError("Install is not offered with all three mods");
 			hover(context, install);
 			context.takeScreenshot("mosaicary-builds-3-install-tooltip");
 			Steps.click(context, install);
-			context.waitFor(minecraft -> {
+			context.waitFor((Minecraft minecraft) -> {
 				Catalogue.Download state = MosaicaryClient.instance().catalogue().download(card);
 				return state != null && state.state() != Catalogue.State.LOADING;
 			}, 20 * 120);
-			Catalogue.Download done = context.computeOnClient(minecraft -> MosaicaryClient.instance().catalogue().download(card));
+			Catalogue.Download done = context.computeOnClient((Minecraft minecraft) -> MosaicaryClient.instance().catalogue().download(card));
 			if (done.state() != Catalogue.State.READY) throw new AssertionError("Install failed: " + done.failure());
 
-			SiteClient site = context.computeOnClient(minecraft -> MosaicaryClient.instance().catalogue().site());
+			SiteClient site = context.computeOnClient((Minecraft minecraft) -> MosaicaryClient.instance().catalogue().site());
 			int blocks = -1;
 			for (Builds.Format format : Builds.Format.values()) {
 				Path file = site.buildPath(card, format);
@@ -96,13 +99,13 @@ public final class BuildsGameTest implements FabricClientGameTest {
 
 			// Out to the world, where the chat holds WorldEdit's command.
 			context.getInput().pressKey(InputConstants.KEY_ESCAPE);
-			context.waitFor(minecraft -> minecraft.gui.screen() instanceof CatalogueScreen screen && screen.openCard() == null, 100);
-			Steps.click(context, context.computeOnClient(minecraft -> screen(minecraft.gui.screen()).buildsButton()));
+			context.waitFor((Minecraft minecraft) -> minecraft.gui.screen() instanceof CatalogueScreen screen && screen.openCard() == null, 100);
+			Steps.click(context, context.computeOnClient((Minecraft minecraft) -> screen(minecraft.gui.screen()).buildsButton()));
 			context.getInput().pressKey(InputConstants.KEY_ESCAPE);
 			context.waitForScreen(null);
 			context.waitTicks(10);
 			context.takeScreenshot("mosaicary-builds-5-worldedit-command");
-			context.runOnClient(minecraft -> MosaicaryClient.instance().catalogue().site().placers(List.of()));
+			context.runOnClient((Minecraft minecraft) -> MosaicaryClient.instance().catalogue().site().placers(List.of()));
 		}
 	}
 
@@ -111,7 +114,7 @@ public final class BuildsGameTest implements FabricClientGameTest {
 	}
 
 	private static List<ModelCard> shown(ClientGameTestContext context) {
-		return context.computeOnClient(minecraft -> screen(minecraft.gui.screen()).shown());
+		return context.computeOnClient((Minecraft minecraft) -> screen(minecraft.gui.screen()).shown());
 	}
 
 	/** Rests the pointer on a widget until its tooltip shows. */
@@ -121,3 +124,16 @@ public final class BuildsGameTest implements FabricClientGameTest {
 		context.waitTicks(20);
 	}
 }
+//#else
+//$$ package com.mopicmp.mosaicary.gametest;
+//$$
+//$$ import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
+//$$ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
+//$$
+//$$ /** The model catalogue is built from 1.21.11 on; before, there is nothing here to test. */
+//$$ public final class BuildsGameTest implements FabricClientGameTest {
+//$$ 	@Override
+//$$ 	public void runTest(ClientGameTestContext context) {
+//$$ 	}
+//$$ }
+//#endif

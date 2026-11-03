@@ -7,6 +7,7 @@ import com.mopicmp.mosaicary.client.ui.SkinsScreen;
 
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.TitleScreen;
 
 /**
@@ -50,16 +51,16 @@ public final class MenuSkinGameTest implements FabricClientGameTest {
 		// Again, this time through a skin's 3D preview, and out with the close button.
 		Steps.click(context, figure(context));
 		context.waitForScreen(SkinsScreen.class);
-		context.waitFor(minecraft -> !MosaicaryClient.instance().skins().shelf(SkinsScreen.query()).cards.isEmpty(), 20 * 60);
+		context.waitFor((Minecraft minecraft) -> !MosaicaryClient.instance().skins().shelf(SkinsScreen.query()).cards.isEmpty(), 20 * 60);
 		context.waitTicks(20);
-		int[] card = context.computeOnClient(minecraft -> ((SkinsScreen) minecraft.gui.screen()).cardCenter(0));
+		int[] card = context.computeOnClient((Minecraft minecraft) -> ((SkinsScreen) minecraft.gui.screen()).cardCenter(0));
 		Steps.click(context, card[0], card[1]);
-		context.waitFor(minecraft -> minecraft.gui.screen() instanceof SkinsScreen screen && screen.openCard() != null, 100);
+		context.waitFor((Minecraft minecraft) -> minecraft.gui.screen() instanceof SkinsScreen screen && screen.openCard() != null, 100);
 		context.waitTicks(60);
 		context.takeScreenshot("menu-skin-3b-wardrobe-preview");
 		context.getInput().pressKey(InputConstants.KEY_ESCAPE);
 		context.waitTicks(5);
-		double[] close = context.computeOnClient(minecraft -> {
+		double[] close = context.computeOnClient((Minecraft minecraft) -> {
 			var screen = minecraft.gui.screen();
 			for (var widget : net.fabricmc.fabric.api.client.screen.v1.Screens.getWidgets(screen)) {
 				if (widget.getX() + widget.getWidth() >= screen.width - 8 && widget.getY() <= 8) {
@@ -84,13 +85,13 @@ public final class MenuSkinGameTest implements FabricClientGameTest {
 		}
 
 		// Switched off while the menu is open: gone at once; on again: back.
-		context.runOnClient(minecraft -> {
+		context.runOnClient((Minecraft minecraft) -> {
 			MosaicaryClient.instance().settings().menuSkin = false;
 			MosaicaryClient.instance().saveSettings();
 		});
 		context.waitTicks(5);
 		context.takeScreenshot("menu-skin-4-switched-off");
-		context.runOnClient(minecraft -> {
+		context.runOnClient((Minecraft minecraft) -> {
 			MosaicaryClient.instance().settings().menuSkin = true;
 			MosaicaryClient.instance().saveSettings();
 		});
@@ -100,7 +101,7 @@ public final class MenuSkinGameTest implements FabricClientGameTest {
 	}
 
 	private static void setScale(ClientGameTestContext context, int scale) {
-		context.runOnClient(minecraft -> {
+		context.runOnClient((Minecraft minecraft) -> {
 			minecraft.options.guiScale().set(scale);
 			minecraft.resizeGui();
 		});
@@ -119,7 +120,7 @@ public final class MenuSkinGameTest implements FabricClientGameTest {
 	}
 
 	private static MenuSkin figure(ClientGameTestContext context) {
-		MenuSkin figure = context.computeOnClient(minecraft -> MenuSkin.on(minecraft.gui.screen()));
+		MenuSkin figure = context.computeOnClient((Minecraft minecraft) -> MenuSkin.on(minecraft.gui.screen()));
 		if (figure == null) throw new AssertionError("No figure beside the main menu");
 		return figure;
 	}
@@ -132,11 +133,11 @@ public final class MenuSkinGameTest implements FabricClientGameTest {
 		context.getInput().setCursorPos((figure.getX() - 150) * scale, eyes * scale);
 		context.waitTicks(5);
 		context.takeScreenshot("menu-skin-" + name + "-left");
-		float left = context.computeOnClient(minecraft -> MenuSkin.on(minecraft.gui.screen()).headYaw());
+		float left = context.computeOnClient((Minecraft minecraft) -> MenuSkin.on(minecraft.gui.screen()).headYaw());
 		context.getInput().setCursorPos((figure.getRight() + 40) * scale, eyes * scale);
 		context.waitTicks(5);
 		context.takeScreenshot("menu-skin-" + name + "-right");
-		float right = context.computeOnClient(minecraft -> MenuSkin.on(minecraft.gui.screen()).headYaw());
+		float right = context.computeOnClient((Minecraft minecraft) -> MenuSkin.on(minecraft.gui.screen()).headYaw());
 		return new float[] { left, right };
 	}
 }

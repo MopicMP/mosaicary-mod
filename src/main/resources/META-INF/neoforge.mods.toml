@@ -20,10 +20,13 @@ config = "mosaicary.mixins.json"
 [[mixins]]
 config = "mosaicary.client.mixins.json"
 
+[[mixins]]
+config = "mosaicary.neoforge.mixins.json"
+
 [[dependencies.mosaicary]]
 modId = "neoforge"
 type = "required"
-versionRange = "[26.3,)"
+versionRange = "[@NEOFORGE_MIN@,)"
 ordering = "NONE"
 side = "BOTH"
 

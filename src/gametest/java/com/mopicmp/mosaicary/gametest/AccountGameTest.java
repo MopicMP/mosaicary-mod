@@ -28,6 +28,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.TitleScreen;
 
 /**
@@ -54,7 +55,7 @@ public final class AccountGameTest implements FabricClientGameTest {
 		if (site == null || key == null) return;
 		context.waitForScreen(TitleScreen.class);
 
-		String before = context.computeOnClient(minecraft -> {
+		String before = context.computeOnClient((Minecraft minecraft) -> {
 			Settings settings = MosaicaryClient.instance().settings();
 			String live = MosaicaryClient.instance().skins().site().base();
 			MosaicaryClient.instance().skins().site().base(site);
@@ -67,13 +68,13 @@ public final class AccountGameTest implements FabricClientGameTest {
 				+ ", Mojang takes skins from it: " + Skins.canUpload() + ", can wear: " + MosaicaryClient.instance().skins().canWear());
 			return live;
 		});
-		if (!context.computeOnClient(minecraft -> MosaicaryClient.instance().skins().canWear())) {
+		if (!context.computeOnClient((Minecraft minecraft) -> MosaicaryClient.instance().skins().canWear())) {
 			throw new AssertionError("Signed in to the site, and Wear still cannot do anything");
 		}
 
 		// A file of one's own goes in and is opened.
 		Path source = FabricLoader.getInstance().getGameDir().resolve("account-test/my own skin.png");
-		context.runOnClient(minecraft -> {
+		context.runOnClient((Minecraft minecraft) -> {
 			try {
 				Files.createDirectories(source.getParent());
 				try (Stream<Path> found = Files.list(FabricLoader.getInstance().getGameDir().resolve("mosaicary/cache/skins/files"))) {
@@ -87,17 +88,17 @@ public final class AccountGameTest implements FabricClientGameTest {
 			((SkinsScreen) minecraft.gui.screen()).onFilesDrop(List.of(source));
 		});
 		// Any file of the wardrobe's own will do: the same picture may be in it under another name already.
-		context.waitFor(minecraft -> MosaicaryClient.instance().skins().wardrobe().shown().stream().anyMatch(one -> one.file != null), 20 * 20);
+		context.waitFor((Minecraft minecraft) -> MosaicaryClient.instance().skins().wardrobe().shown().stream().anyMatch(one -> one.file != null), 20 * 20);
 		Wardrobe.Entry mine = context.computeOnClient(minecraft ->
 			MosaicaryClient.instance().skins().wardrobe().shown().stream().filter(one -> one.file != null).findFirst().orElseThrow());
-		context.runOnClient(minecraft -> ((SkinsScreen) minecraft.gui.screen()).openEntry(mine));
+		context.runOnClient((Minecraft minecraft) -> ((SkinsScreen) minecraft.gui.screen()).openEntry(mine));
 		context.waitTicks(40);
 		context.takeScreenshot("account-1-signed-in-skin");
 
 		// Wear, with a real click.
-		Steps.click(context, context.computeOnClient(minecraft -> ((SkinsScreen) minecraft.gui.screen()).wearButton()));
-		UUID me = context.computeOnClient(minecraft -> minecraft.getUser().getProfileId());
-		context.waitFor(minecraft -> MosaicaryClient.instance().skins().shownOn(me) != null, 20 * 20);
+		Steps.click(context, context.computeOnClient((Minecraft minecraft) -> ((SkinsScreen) minecraft.gui.screen()).wearButton()));
+		UUID me = context.computeOnClient((Minecraft minecraft) -> minecraft.getUser().getProfileId());
+		context.waitFor((Minecraft minecraft) -> MosaicaryClient.instance().skins().shownOn(me) != null, 20 * 20);
 		context.waitTicks(10);
 		context.takeScreenshot("account-2-worn");
 		System.out.println("account test: worn through the site, shown on this player");
@@ -109,17 +110,17 @@ public final class AccountGameTest implements FabricClientGameTest {
 		System.out.println("account test: the file on the site: " + file.substring(0, 3));
 		if (!file.startsWith("200")) throw new AssertionError("The file did not reach the site");
 
-		context.runOnClient(minecraft -> minecraft.gui.setScreen(new TitleScreen()));
+		context.runOnClient((Minecraft minecraft) -> { minecraft.gui.setScreen(new TitleScreen()); });
 		context.waitTicks(10);
 		context.takeScreenshot("account-3-figure-wears-it");
 
 		// In a world the skin goes to the other players with the mod, and theirs come back.
-		UUID byName = context.computeOnClient(minecraft -> Skins.offlineId(minecraft.getUser().getName()));
+		UUID byName = context.computeOnClient((Minecraft minecraft) -> Skins.offlineId(minecraft.getUser().getName()));
 		UUID other = UUID.nameUUIDFromBytes("OfflinePlayer:SomebodyElse".getBytes(java.nio.charset.StandardCharsets.UTF_8));
 		try (TestSingleplayerContext world = context.worldBuilder().create()) {
 			world.getConnection().waitForChunksRender();
 			context.getInput().lookAt(0, 0);
-			context.runOnClient(minecraft -> minecraft.options.setCameraType(CameraType.THIRD_PERSON_FRONT));
+			context.runOnClient((Minecraft minecraft) -> minecraft.options.setCameraType(CameraType.THIRD_PERSON_FRONT));
 			context.waitTicks(40);
 			String wearing = "";
 			for (int i = 0; i < 40; i++) {
@@ -127,14 +128,14 @@ public final class AccountGameTest implements FabricClientGameTest {
 				if (wearing.startsWith("200")) break;
 				context.waitTicks(20);
 			}
-			System.out.println("account test: relay status " + context.computeOnClient(minecraft -> MosaicaryClient.instance().relay().status())
+			System.out.println("account test: relay status " + context.computeOnClient((Minecraft minecraft) -> MosaicaryClient.instance().relay().status())
 				+ ", the site says: " + wearing.substring(0, Math.min(170, wearing.length())));
 			if (!wearing.contains(sha)) throw new AssertionError("The site does not know what this player wears: " + wearing);
 			context.takeScreenshot("account-4-world");
 
 			// What another game does with that answer.
 			JsonObject said = JsonParser.parseString(wearing.substring(4)).getAsJsonObject();
-			context.runOnClient(minecraft -> {
+			context.runOnClient((Minecraft minecraft) -> {
 				try {
 					Method apply = WearRelay.class.getDeclaredMethod("apply", UUID.class, JsonObject.class);
 					apply.setAccessible(true);
@@ -143,14 +144,14 @@ public final class AccountGameTest implements FabricClientGameTest {
 					throw new IllegalStateException(failed);
 				}
 			});
-			context.waitFor(minecraft -> MosaicaryClient.instance().skins().shownOn(other) != null, 20 * 20);
+			context.waitFor((Minecraft minecraft) -> MosaicaryClient.instance().skins().shownOn(other) != null, 20 * 20);
 			System.out.println("account test: a player wearing it is shown it");
-			context.runOnClient(minecraft -> minecraft.options.setCameraType(CameraType.FIRST_PERSON));
+			context.runOnClient((Minecraft minecraft) -> minecraft.options.setCameraType(CameraType.FIRST_PERSON));
 		}
 
 		// Another copy of the game: nothing on disk, signing in brings the wardrobe back.
 		context.waitForScreen(TitleScreen.class);
-		context.runOnClient(minecraft -> {
+		context.runOnClient((Minecraft minecraft) -> {
 			Skins skins = MosaicaryClient.instance().skins();
 			Wardrobe held = skins.wardrobe();
 			try {
@@ -175,25 +176,25 @@ public final class AccountGameTest implements FabricClientGameTest {
 			if (!skins.wardrobe().shown().isEmpty()) throw new AssertionError("The wardrobe was not emptied");
 			MosaicaryClient.instance().wardrobeSync().syncAll();
 		});
-		context.waitFor(minecraft -> MosaicaryClient.instance().skins().wardrobe().shown().stream().anyMatch(one -> sha.equals(one.file)), 20 * 20);
+		context.waitFor((Minecraft minecraft) -> MosaicaryClient.instance().skins().wardrobe().shown().stream().anyMatch(one -> sha.equals(one.file)), 20 * 20);
 		Wardrobe.Entry back = context.computeOnClient(minecraft ->
 			MosaicaryClient.instance().skins().wardrobe().shown().stream().filter(one -> sha.equals(one.file)).findFirst().orElseThrow());
-		context.waitFor(minecraft -> MosaicaryClient.instance().skins().texture(back).state() != Skins.State.LOADING, 20 * 20);
-		Skins.State read = context.computeOnClient(minecraft -> MosaicaryClient.instance().skins().texture(back).state());
+		context.waitFor((Minecraft minecraft) -> MosaicaryClient.instance().skins().texture(back).state() != Skins.State.LOADING, 20 * 20);
+		Skins.State read = context.computeOnClient((Minecraft minecraft) -> MosaicaryClient.instance().skins().texture(back).state());
 		System.out.println("account test: the wardrobe came back, the file: " + read + ", name: " + back.name);
 		if (read != Skins.State.READY) throw new AssertionError("The file did not come back from the site");
-		context.runOnClient(minecraft -> MosaicaryClient.instance().openWardrobe(minecraft.gui.screen()));
+		context.runOnClient((Minecraft minecraft) -> MosaicaryClient.instance().openWardrobe(minecraft.gui.screen()));
 		context.waitTicks(5);
-		context.runOnClient(minecraft -> ((SkinsScreen) minecraft.gui.screen()).openEntry(back));
+		context.runOnClient((Minecraft minecraft) -> ((SkinsScreen) minecraft.gui.screen()).openEntry(back));
 		context.waitTicks(40);
 		context.takeScreenshot("account-5-came-back");
 
 		// "Delete my data", with a real click: nothing of it stays on the site, and the game signs out.
-		context.runOnClient(minecraft -> minecraft.gui.setScreen(new SettingsScreen(minecraft.gui.screen())));
+		context.runOnClient((Minecraft minecraft) -> { minecraft.gui.setScreen(new SettingsScreen(minecraft.gui.screen())); });
 		context.waitTicks(10);
 		context.takeScreenshot("account-6-settings");
-		Steps.click(context, context.computeOnClient(minecraft -> ((SettingsScreen) minecraft.gui.screen()).deleteButton()));
-		context.waitFor(minecraft -> MosaicaryClient.instance().settings().siteKey == null, 20 * 20);
+		Steps.click(context, context.computeOnClient((Minecraft minecraft) -> ((SettingsScreen) minecraft.gui.screen()).deleteButton()));
+		context.waitFor((Minecraft minecraft) -> MosaicaryClient.instance().settings().siteKey == null, 20 * 20);
 		context.waitTicks(10);
 		String wearAfter = get(site + "/api/wear/" + byName);
 		String fileAfter = get(site + "/api/wardrobe/files/" + sha + ".png");
@@ -201,7 +202,7 @@ public final class AccountGameTest implements FabricClientGameTest {
 		if (!wearAfter.startsWith("204") || !fileAfter.startsWith("404")) throw new AssertionError("Deleting left something on the site");
 
 		// Back to how the run began.
-		context.runOnClient(minecraft -> {
+		context.runOnClient((Minecraft minecraft) -> {
 			Settings settings = MosaicaryClient.instance().settings();
 			settings.site = before;
 			settings.siteKey = null;

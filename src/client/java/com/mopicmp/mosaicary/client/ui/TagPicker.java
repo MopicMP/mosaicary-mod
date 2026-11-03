@@ -16,8 +16,9 @@ import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.narration.NarratedElementType;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
-import net.minecraft.client.input.KeyEvent;
+//#if MC>=12111
 import net.minecraft.client.input.MouseButtonEvent;
+//#endif
 import net.minecraft.network.chat.Component;
 
 /**
@@ -84,8 +85,13 @@ public final class TagPicker extends AbstractWidget {
 		return 4 + Icons.SIZE + 4 + Math.max(font.width(Component.translatable("mosaicary.skins.tags.none")), 60) + 4 + Icons.SIZE + 2;
 	}
 
+	//#if MC>=12111
 	@Override
 	public void onClick(MouseButtonEvent event, boolean doubleClick) {
+	//#else
+	//$$ @Override
+	//$$ public void onClick(double mouseX, double mouseY) {
+	//#endif
 		open = !open;
 		if (open) {
 			first = 0;
@@ -278,15 +284,15 @@ public final class TagPicker extends AbstractWidget {
 		return true;
 	}
 
-	/** Backspace takes a character back, Escape closes. Returns whether the key was taken. */
-	public boolean key(KeyEvent event) {
+	/** Backspace takes a character back, Escape closes. Returns whether the key (its key code) was taken. */
+	public boolean key(int key) {
 		if (!open) return false;
-		if (event.key() == InputConstants.KEY_BACKSPACE) {
+		if (key == InputConstants.KEY_BACKSPACE) {
 			if (!typed.isEmpty()) typed = typed.substring(0, typed.offsetByCodePoints(typed.length(), -1));
 			first = 0;
 			return true;
 		}
-		if (event.key() == InputConstants.KEY_ESCAPE) {
+		if (key == InputConstants.KEY_ESCAPE) {
 			close();
 			return true;
 		}

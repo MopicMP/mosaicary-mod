@@ -1,3 +1,5 @@
+//#if MC>=12111
+// Worn models and their catalogue are built from 1.21.11 on (docs/mod-versions-plan.md).
 package com.mopicmp.mosaicary.client.render;
 
 import com.mojang.blaze3d.platform.Lighting;
@@ -7,6 +9,10 @@ import com.mojang.math.Axis;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.render.pip.PictureInPictureRenderer;
 import net.minecraft.client.renderer.SubmitNodeCollector;
+//#if MC<260100
+//$$ import net.minecraft.client.renderer.MultiBufferSource;
+//$$ import net.minecraft.client.renderer.feature.FeatureRenderDispatcher;
+//#endif
 
 /**
  * Draws a model preview into its own texture, which the screen then shows.
@@ -23,13 +29,26 @@ public final class PreviewRenderer extends PictureInPictureRenderer<PreviewState
 	/** Full brightness, the packed light value the inventory draws entities with. */
 	private static final int FULL_BRIGHT = 0xF000F0;
 
+	//#if MC<260100
+	//$$ public PreviewRenderer(MultiBufferSource.BufferSource buffers) {
+	//$$ 	super(buffers);
+	//$$ }
+	//#endif
+
 	@Override
 	public Class<PreviewState> getRenderStateClass() {
 		return PreviewState.class;
 	}
 
 	@Override
+	//#if MC>=260100
 	protected void renderToTexture(PreviewState state, PoseStack poseStack, SubmitNodeCollector collector) {
+	//#else
+	//$$ protected void renderToTexture(PreviewState state, PoseStack poseStack) {
+	//$$ 	// Before 26.1 the renderer collects the model's parts itself and draws them at the end.
+	//$$ 	FeatureRenderDispatcher features = Minecraft.getInstance().gameRenderer.getFeatureRenderDispatcher();
+	//$$ 	SubmitNodeCollector collector = features.getSubmitNodeStorage();
+	//#endif
 		Minecraft.getInstance().gameRenderer.lighting().setupFor(Lighting.Entry.ENTITY_IN_UI);
 		// The stack arrives scaled to GUI units with the origin in the middle of the
 		// box and y pointing down the screen. A half turn about Z stands the model
@@ -42,6 +61,9 @@ public final class PreviewRenderer extends PictureInPictureRenderer<PreviewState
 		float[] center = state.center();
 		poseStack.translate(-center[0], -center[1], -center[2]);
 		state.mesh().submit(poseStack, collector, FULL_BRIGHT, state.posing());
+		//#if MC<260100
+		//$$ features.renderAllFeatures();
+		//#endif
 	}
 
 	@Override
@@ -54,3 +76,4 @@ public final class PreviewRenderer extends PictureInPictureRenderer<PreviewState
 		return "mosaicary model preview";
 	}
 }
+//#endif

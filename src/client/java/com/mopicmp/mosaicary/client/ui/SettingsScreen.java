@@ -73,6 +73,11 @@ public final class SettingsScreen extends Screen {
 		return rowY(row) + (CARD - ROW) / 2;
 	}
 
+	/** The screen where the figure beside this menu is placed and sized. */
+	private void openPlace(MenuSkin.Beside beside) {
+		minecraft.gui.setScreen(new MenuSkinScreen(this, beside));
+	}
+
 	@Override
 	protected void init() {
 		Settings settings = MosaicaryClient.instance().settings();
@@ -114,7 +119,7 @@ public final class SettingsScreen extends Screen {
 		// Where it stands and how large: a screen of its own, with the figure on it.
 		addRenderableWidget(IconButton.square(menuOn.getX() - 4 - ROW, controlY(MENU_SKIN), ROW, Icon.SIZE,
 			Component.translatable("mosaicary.settings.menu_skin.place"),
-			() -> minecraft.gui.setScreen(new MenuSkinScreen(this, MenuSkin.Beside.MAIN))));
+			() -> openPlace(MenuSkin.Beside.MAIN)));
 
 		// The same beside the pause menu, placed on its own.
 		IconButton[] pause = pair(PAUSE_SKIN, "mosaicary.settings.pause_skin", () -> setPauseSkin(true), () -> setPauseSkin(false));
@@ -123,7 +128,7 @@ public final class SettingsScreen extends Screen {
 		showPauseSkin(settings.pauseSkin);
 		addRenderableWidget(IconButton.square(pauseOn.getX() - 4 - ROW, controlY(PAUSE_SKIN), ROW, Icon.SIZE,
 			Component.translatable("mosaicary.settings.pause_skin.place"),
-			() -> minecraft.gui.setScreen(new MenuSkinScreen(this, MenuSkin.Beside.PAUSE))));
+			() -> openPlace(MenuSkin.Beside.PAUSE)));
 
 		// Deleting one's data on the site, which also switches sharing and the wardrobe there off.
 		Component delete = Component.translatable("mosaicary.settings.delete");
@@ -275,7 +280,7 @@ public final class SettingsScreen extends Screen {
 
 	@Override
 	public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
-		if (CatalogueScreen.hideMouse || SkinsScreen.hideMouse) {
+		if (Theme.hideMouse) {
 			mouseX = -10000;
 			mouseY = -10000;
 		}

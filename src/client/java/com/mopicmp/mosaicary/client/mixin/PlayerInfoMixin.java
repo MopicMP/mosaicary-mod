@@ -11,8 +11,10 @@ import com.mopicmp.mosaicary.client.MosaicaryClient;
 import com.mopicmp.mosaicary.client.skins.Skins;
 
 import net.minecraft.client.multiplayer.PlayerInfo;
-import net.minecraft.core.ClientAsset;
 import net.minecraft.world.entity.player.PlayerSkin;
+//#if MC>=12111
+import net.minecraft.core.ClientAsset;
+//#endif
 
 /**
  * Draws a skin just put on in place of the one the server handed out.
@@ -36,7 +38,13 @@ public abstract class PlayerInfoMixin {
 		Skins.Shown shown = client.skins().shownOn(getProfile().id());
 		if (shown == null) return;
 		PlayerSkin given = info.getReturnValue();
+		// Before 1.21.9 a skin names its texture and the address it came from rather than one asset.
+		//#if MC>=12111
 		info.setReturnValue(new PlayerSkin(new ClientAsset.ResourceTexture(shown.texture(), shown.texture()), given.cape(),
 			given.elytra(), shown.model(), given.secure()));
+		//#else
+		//$$ info.setReturnValue(new PlayerSkin(shown.texture(), null, given.capeTexture(), given.elytraTexture(), shown.model(),
+		//$$ 	given.secure()));
+		//#endif
 	}
 }

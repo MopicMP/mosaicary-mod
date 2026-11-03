@@ -20,12 +20,15 @@ import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
+//#if MC>=12111
 import net.minecraft.client.input.MouseButtonEvent;
-import net.minecraft.client.model.Model;
+//#endif
 import net.minecraft.client.resources.DefaultPlayerSkin;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.client.sounds.SoundManager;
+//#if MC>=12111
 import net.minecraft.core.ClientAsset;
+//#endif
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvents;
@@ -98,14 +101,17 @@ public final class MenuSkin extends AbstractWidget {
 	private static boolean freshReady;
 	private static long freshAsked;
 
-	private final Model.Simple wideModel;
-	private final Model.Simple slimModel;
+	private final PlayerPose.Figure wideModel;
+	private final PlayerPose.Figure slimModel;
 	private final Screen screen;
 	private final Beside beside;
 	private final long born = System.nanoTime();
 	private float turned;
 	private boolean pressed;
 	private boolean dragged;
+	//#if MC<12111
+	//$$ private long lastClickAt;
+	//#endif
 
 	/** Drawn on the settings screen to show where it will stand: not clickable, no tooltip. */
 	private final boolean preview;
@@ -261,16 +267,30 @@ public final class MenuSkin extends AbstractWidget {
 		if (!asked) {
 			asked = true;
 			CompletableFuture.supplyAsync(minecraft::getGameProfile, Util.nonCriticalIoPool())
+				//#if MC>=12111
 				.thenAccept(profile -> minecraft.execute(() -> accountSkin = minecraft.getSkinManager().createLookup(profile, false)));
+				//#else
+				//$$ .thenAccept(profile -> minecraft.execute(() -> accountSkin = minecraft.getSkinManager().lookupInsecure(profile)));
+				//#endif
 		}
 		PlayerSkin skin = accountSkin != null ? accountSkin.get() : DefaultPlayerSkin.get(me);
+		// Before 1.21.9 a skin names its texture and the address it came from rather than one asset.
+		//#if MC>=12111
 		return new Worn(skin.body().texturePath(), skin.model(), accountPixels(skin));
+		//#else
+		//$$ return new Worn(skin.texture(), skin.model(), accountPixels(skin));
+		//#endif
 	}
 
 	/** The pixels of the account's skin: asked for once per skin, null until they have come. */
 	private static int[] accountPixels(PlayerSkin skin) {
+		//#if MC>=12111
 		if (!(skin.body() instanceof ClientAsset.DownloadedTexture downloaded)) return null;
 		String url = downloaded.url();
+		//#else
+		//$$ String url = skin.textureUrl();
+		//$$ if (url == null) return null;
+		//#endif
 		if (!url.equals(accountPixelsOf)) {
 			accountPixelsOf = url;
 			accountPixels = null;
@@ -311,7 +331,7 @@ public final class MenuSkin extends AbstractWidget {
 			return;
 		}
 		Worn worn = worn();
-		Model.Simple model = worn.model() == PlayerModelType.SLIM ? slimModel : wideModel;
+		PlayerPose.Figure model = worn.model() == PlayerModelType.SLIM ? slimModel : wideModel;
 
 		// The head follows the pointer, as far as a neck turns.
 		float middle = getX() + getWidth() / 2f;
@@ -326,7 +346,7 @@ public final class MenuSkin extends AbstractWidget {
 		PlayerPose.look(model, lastYaw, (float) Math.atan((mouseY - eyes) / 70f) * 0.6f);
 
 		float scale = 0.97f * getHeight() / 2.125f;
-		graphics.skin(model, textureNow(worn), scale, -5, 20 + turned, -1.0625f, getX(), getY(), getRight(), getBottom());
+		PlayerPose.draw(graphics, model, textureNow(worn), scale, -5, 20 + turned, -1.0625f, getX(), getY(), getRight(), getBottom());
 
 		if (isHovered() && !preview) {
 			Theme.tooltip(graphics, Minecraft.getInstance().font, Component.translatable("mosaicary.menu_skin.tooltip"), mouseX, mouseY);
@@ -351,21 +371,40 @@ public final class MenuSkin extends AbstractWidget {
 		return null;
 	}
 
+	//#if MC>=12111
 	@Override
 	public void onClick(MouseButtonEvent event, boolean doubleClick) {
+	//#else
+	//$$ @Override
+	//$$ public void onClick(double mouseX, double mouseY) {
+	//$$ 	// The game tells a double click from 1.21.9 on; before, it is two clicks close together.
+	//$$ 	long now = System.currentTimeMillis();
+	//$$ 	boolean doubleClick = now - lastClickAt < 250;
+	//$$ 	lastClickAt = now;
+	//#endif
 		pressed = true;
 		dragged = false;
 		if (doubleClick) turned = 0;
 	}
 
+	//#if MC>=12111
 	@Override
 	protected void onDrag(MouseButtonEvent event, double dx, double dy) {
+	//#else
+	//$$ @Override
+	//$$ protected void onDrag(double mouseX, double mouseY, double dx, double dy) {
+	//#endif
 		turned += (float) dx * 2.5f;
 		if (Math.abs(dx) > 0.5) dragged = true;
 	}
 
+	//#if MC>=12111
 	@Override
 	public void onRelease(MouseButtonEvent event) {
+	//#else
+	//$$ @Override
+	//$$ public void onRelease(double mouseX, double mouseY) {
+	//#endif
 		// A click opens the wardrobe; a drag only turns the figure.
 		if (pressed && !dragged) {
 			Minecraft minecraft = Minecraft.getInstance();

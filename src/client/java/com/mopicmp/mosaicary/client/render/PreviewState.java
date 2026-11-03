@@ -1,3 +1,5 @@
+//#if MC>=12111
+// Worn models and their catalogue are built from 1.21.11 on (docs/mod-versions-plan.md).
 package com.mopicmp.mosaicary.client.render;
 
 import com.mopicmp.mosaicary.client.model.Posing;
@@ -27,3 +29,4 @@ public record PreviewState(ModelMesh mesh, Posing posing, float spin, float tilt
 			PictureInPictureRenderState.getBounds(x0, y0, x1, y1, scissorArea));
 	}
 }
+//#endif

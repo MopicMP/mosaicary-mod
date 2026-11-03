@@ -1,3 +1,5 @@
+//#if MC>=12111
+// Worn models and their catalogue are built from 1.21.11 on (docs/mod-versions-plan.md).
 package com.mopicmp.mosaicary.client.render;
 
 import java.util.ArrayList;
@@ -241,3 +243,4 @@ public final class ModelMesh implements AutoCloseable {
 		registered.clear();
 	}
 }
+//#endif

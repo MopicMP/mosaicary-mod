@@ -8,24 +8,26 @@ import com.mojang.blaze3d.platform.InputConstants;
 import com.mopicmp.mosaicary.Mosaicary;
 import com.mopicmp.mosaicary.client.build.Builds;
 import com.mopicmp.mosaicary.client.platform.ClientPlatform;
-import com.mopicmp.mosaicary.client.render.PreviewRenderer;
-import com.mopicmp.mosaicary.client.render.PreviewState;
 import com.mopicmp.mosaicary.client.site.Settings;
 import com.mopicmp.mosaicary.client.site.SiteClient;
 import com.mopicmp.mosaicary.client.skins.SkinRateProbe;
 import com.mopicmp.mosaicary.client.skins.Skins;
 import com.mopicmp.mosaicary.client.skins.WardrobeSync;
-import com.mopicmp.mosaicary.client.ui.CatalogueScreen;
 import com.mopicmp.mosaicary.client.ui.HintToast;
 import com.mopicmp.mosaicary.client.ui.MenuSkin;
 import com.mopicmp.mosaicary.client.ui.PauseMenuButton;
-import com.mopicmp.mosaicary.client.ui.RingScreen;
 import com.mopicmp.mosaicary.client.ui.ScreenWidgets;
 import com.mopicmp.mosaicary.client.ui.SkinsScreen;
 import com.mopicmp.mosaicary.client.wear.WearRelay;
-import com.mopicmp.mosaicary.client.wear.Wearing;
 import com.mopicmp.mosaicary.net.MosaicaryPayloads;
 import com.mopicmp.mosaicary.platform.Platform;
+//#if MC>=12111
+import com.mopicmp.mosaicary.client.render.PreviewRenderer;
+import com.mopicmp.mosaicary.client.render.PreviewState;
+import com.mopicmp.mosaicary.client.ui.CatalogueScreen;
+import com.mopicmp.mosaicary.client.ui.RingScreen;
+import com.mopicmp.mosaicary.client.wear.Wearing;
+//#endif
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
@@ -38,6 +40,7 @@ import net.fabricmc.api.ClientModInitializer;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.ChatComponent;
 import net.minecraft.client.gui.components.SpriteIconButton;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.Screen;
@@ -58,7 +61,8 @@ import net.minecraft.network.chat.Component;
  * The catalogue of Blockbench models, wearing models, the quick-select ring, Figura
  * avatars and the shelf of builds are all still here, but hidden in this release: the key
  * opens the wardrobe, the ring key is not registered, and no model is drawn on anyone.
- * {@code -Dmosaicary.models=true} brings them back, for the game tests that cover them.
+ * {@code -Dmosaicary.models=true} brings them back, for the game tests that cover them. They are
+ * built for the game versions from 1.21.11 on; on older ones the wardrobe stands alone.
  */
 //#if FABRIC>=1
 public final class MosaicaryClient implements ClientModInitializer {
@@ -73,8 +77,11 @@ public final class MosaicaryClient implements ClientModInitializer {
 
 	private Settings settings;
 	private Path settingsFile;
+	private SiteClient site;
+	//#if MC>=12111
 	private Catalogue catalogue;
 	private Wearing wearing;
+	//#endif
 	private WearRelay relay;
 	private Skins skins;
 	private WardrobeSync wardrobeSync;
@@ -90,6 +97,7 @@ public final class MosaicaryClient implements ClientModInitializer {
 		return settings;
 	}
 
+	//#if MC>=12111
 	public Catalogue catalogue() {
 		return catalogue;
 	}
@@ -97,6 +105,7 @@ public final class MosaicaryClient implements ClientModInitializer {
 	public Wearing wearing() {
 		return wearing;
 	}
+	//#endif
 
 	public WearRelay relay() {
 		return relay;
@@ -155,9 +164,11 @@ public final class MosaicaryClient implements ClientModInitializer {
 		String site = settings.siteBase();
 		if (siteInUse != null && !siteInUse.equals(site)) {
 			Mosaicary.LOGGER.info("Catalogue site is now {}", site);
-			catalogue.site().base(site);
+			this.site.base(site);
 			skins.forgetShelves();
+			//#if MC>=12111
 			if (catalogue.listState() != null) catalogue.refresh();
+			//#endif
 		}
 		siteInUse = site;
 	}
@@ -173,7 +184,7 @@ public final class MosaicaryClient implements ClientModInitializer {
 		settingsSeen = modified();
 		siteInUse = settings.siteBase();
 		String version = Platform.version(Mosaicary.ID);
-		SiteClient site = new SiteClient(settings.siteBase(), gameDir.resolve("mosaicary"),
+		site = new SiteClient(settings.siteBase(), gameDir.resolve("mosaicary"),
 			"Mosaicary/" + version + " (Minecraft mod; +https://mosaicary.com)");
 		// The mods here that place builds, which is where an installed build goes.
 		List<Builds.Format> placers = new ArrayList<>();
@@ -181,11 +192,15 @@ public final class MosaicaryClient implements ClientModInitializer {
 			if (Platform.isLoaded(one.modId)) placers.add(one);
 		}
 		site.placers(placers);
+		//#if MC>=12111
 		catalogue = new Catalogue(site);
 		// Figura keeps the player's avatars here; they can be worn without Figura.
 		catalogue.figuraFolder(gameDir.resolve("figura").resolve("avatars"));
 		wearing = new Wearing(catalogue, settings, settingsFile);
-		relay = new WearRelay(catalogue, wearing, settings);
+		relay = new WearRelay(site, wearing, settings);
+		//#else
+		//$$ relay = new WearRelay(site, null, settings);
+		//#endif
 		skins = new Skins(site);
 		relay.skins(skins);
 		wardrobeSync = new WardrobeSync(skins, relay, settings, this::saveSettings);
@@ -208,7 +223,9 @@ public final class MosaicaryClient implements ClientModInitializer {
 		ClientPlatform.onReceive(MosaicaryPayloads.WardrobeState.TYPE,
 			payload -> Minecraft.getInstance().execute(() -> wardrobeSync.fromServer(payload.json())));
 
+		//#if MC>=12111
 		ClientPlatform.pictureInPicture(PreviewState.class, PreviewRenderer::new);
+		//#endif
 
 		// The measurement of how many skin changes in a row Mojang takes; run by hand only,
 		// since it changes the account's skin back and forth (SkinRateProbe).
@@ -223,21 +240,27 @@ public final class MosaicaryClient implements ClientModInitializer {
 							Minecraft minecraft = Minecraft.getInstance();
 							SkinRateProbe.run(IntegerArgumentType.getInteger(command, "count"),
 								IntegerArgumentType.getInteger(command, "seconds"),
-								line -> minecraft.execute(() -> minecraft.gui.hud.getChat().addClientSystemMessage(Component.literal(line))));
+								line -> minecraft.execute(() -> sayInChat(minecraft, line)));
 							return 1;
 						}))));
 			}
 		});
 
+		//#if MC>=12111
 		KeyMapping.Category category = ClientPlatform.keyCategory(Mosaicary.id("main"));
+		//#else
+		//$$ String category = ClientPlatform.keyCategory(Mosaicary.id("main"));
+		//#endif
 		openKey = ClientPlatform.key(
 			new KeyMapping("key.mosaicary.wardrobe", InputConstants.Type.KEYBOARD, InputConstants.KEY_M, category));
 
 		// Held to show the quick-select ring; R is free in the game's own key list. Models only.
+		//#if MC>=12111
 		if (MODELS) {
 			ringKey = ClientPlatform.key(
 				new KeyMapping("key.mosaicary.ring", InputConstants.Type.KEYBOARD, InputConstants.KEY_R, category));
 		}
+		//#endif
 
 		ClientPlatform.onTick(minecraft -> {
 			if (++ticks % 20 == 0) watchSettings();
@@ -248,11 +271,13 @@ public final class MosaicaryClient implements ClientModInitializer {
 			while (openKey.consumeClick()) {
 				if (minecraft.gui.screen() == null) openWardrobe(null);
 			}
+			//#if MC>=12111
 			while (ringKey != null && ringKey.consumeClick()) {
 				if (minecraft.gui.screen() == null && minecraft.player != null) {
 					minecraft.gui.setScreen(new RingScreen(ringKey));
 				}
 			}
+			//#endif
 		});
 
 		ClientPlatform.onScreenInit((minecraft, screen, width, height) -> {
@@ -271,7 +296,9 @@ public final class MosaicaryClient implements ClientModInitializer {
 		}));
 		ClientPlatform.onLeave(minecraft -> minecraft.execute(() -> {
 			relay.leftWorld();
+			//#if MC>=12111
 			wearing.forgetOthers();
+			//#endif
 			skins.forgetOthers();
 			wardrobeSync.leftServer();
 		}));
@@ -301,6 +328,7 @@ public final class MosaicaryClient implements ClientModInitializer {
 		return screen;
 	}
 
+	//#if MC>=12111
 	/** Opens the model catalogue on top of the given screen (or of the game when null). */
 	public CatalogueScreen open(Screen parent) {
 		CatalogueScreen screen = new CatalogueScreen(parent, catalogue);
@@ -311,6 +339,7 @@ public final class MosaicaryClient implements ClientModInitializer {
 		}
 		return screen;
 	}
+	//#endif
 
 	/**
 	 * The two hints a world can bring.
@@ -356,14 +385,30 @@ public final class MosaicaryClient implements ClientModInitializer {
 				if (row.isEmpty() || row.get(0).getY() == widget.getY()) row.add(widget);
 			}
 		}
-		if (row.isEmpty()) return;
+		Component label = Component.translatable("mosaicary.pause.button",
+			openKey.getTranslatedKeyMessage());
+		if (row.isEmpty()) {
+			// Before 26.1 the pause menu has no row of small icon buttons; the button goes left of its top
+			// button, Back to Game, as the language button stands left of Options on the title screen.
+			AbstractWidget top = null;
+			for (AbstractWidget widget : widgets) {
+				if (widget.getWidth() >= 100 && (top == null || widget.getY() < top.getY())) top = widget;
+			}
+			if (top != null) ScreenWidgets.add(screen, new PauseMenuButton(top.getX() - 24, top.getY(), label, () -> openWardrobe(screen)));
+			return;
+		}
 		int right = 0;
 		for (AbstractWidget widget : row) {
 			widget.setX(widget.getX() - 12);
 			right = Math.max(right, widget.getRight());
 		}
-		Component label = Component.translatable("mosaicary.pause.button",
-			openKey.getTranslatedKeyMessage());
 		ScreenWidgets.add(screen, new PauseMenuButton(right + 4, row.get(0).getY(), label, () -> openWardrobe(screen)));
+	}
+
+	/** A line in the chat from the mod itself, not from the server. */
+	private static void sayInChat(Minecraft minecraft, String line) {
+		// Two statements: the preprocessor rewrites the way to the chat and the call on it apart.
+		ChatComponent chat = minecraft.gui.hud.getChat();
+		chat.addClientSystemMessage(Component.literal(line));
 	}
 }

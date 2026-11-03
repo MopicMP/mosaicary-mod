@@ -1,3 +1,5 @@
+//#if MC>=12111
+// Worn models and their catalogue are built from 1.21.11 on (docs/mod-versions-plan.md).
 package com.mopicmp.mosaicary.client.ui;
 
 import com.mojang.blaze3d.platform.InputConstants;
@@ -82,7 +84,7 @@ public final class RingScreen extends Screen {
 
 	@Override
 	public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
-		if (!CatalogueScreen.hideMouse) chosen = slotToward(mouseX, mouseY);
+		if (!Theme.hideMouse) chosen = slotToward(mouseX, mouseY);
 		Settings settings = MosaicaryClient.instance().settings();
 		Catalogue catalogue = MosaicaryClient.instance().catalogue();
 		Wearing wearing = MosaicaryClient.instance().wearing();
@@ -175,3 +177,4 @@ public final class RingScreen extends Screen {
 		return false;
 	}
 }
+//#endif

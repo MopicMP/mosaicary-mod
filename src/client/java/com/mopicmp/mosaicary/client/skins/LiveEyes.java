@@ -5,6 +5,7 @@ import java.util.Random;
 
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mopicmp.mosaicary.Mosaicary;
+import com.mopicmp.mosaicary.client.render.Textures;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
@@ -45,7 +46,7 @@ public final class LiveEyes implements AutoCloseable {
 		for (int y = 0; y < SIZE; y++) {
 			for (int x = 0; x < SIZE; x++) image.setPixel(x, y, base[y * SIZE + x]);
 		}
-		this.texture = new DynamicTexture(() -> "Mosaicary live eyes", image);
+		this.texture = Textures.of(() -> "Mosaicary live eyes", image);
 		this.id = Mosaicary.id("skins/live-eyes/" + (made++));
 		Minecraft.getInstance().getTextureManager().register(id, texture);
 		this.moveStart = System.currentTimeMillis() + gap();

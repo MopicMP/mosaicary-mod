@@ -12,6 +12,7 @@ import net.minecraft.server.level.ServerPlayer;
 
 //#if FABRIC>=1
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.networking.v1.ClientboundPlayChannelEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -19,10 +20,13 @@ import net.fabricmc.loader.api.FabricLoader;
 //#elseif NEOFORGE>=1
 //$$ import java.util.HashMap;
 //$$ import java.util.LinkedHashMap;
+//$$ import java.util.LinkedHashSet;
 //$$ import java.util.Map;
+//$$ import java.util.Set;
 //$$
 //$$ import com.mopicmp.mosaicary.Mosaicary;
 //$$
+//$$ import net.minecraft.resources.Identifier;
 //$$ import net.neoforged.bus.api.IEventBus;
 //$$ import net.neoforged.fml.ModList;
 //$$ import net.neoforged.fml.loading.FMLPaths;
@@ -123,6 +127,20 @@ public final class Platform {
 		//#endif
 	}
 
+	/**
+	 * A player's client says, after joining, that it takes packets of this type. A Fabric server
+	 * learns a client's channels as they come, and a client of another loader may name them only
+	 * once it is in; a NeoForge server agrees on them before the player joins, so there it never
+	 * happens later.
+	 */
+	public static void onCanSendLater(CustomPacketPayload.Type<?> type, Consumer<ServerPlayer> action) {
+		//#if FABRIC>=1
+		ClientboundPlayChannelEvents.REGISTER.register((handler, sender, server, channels) -> {
+			if (channels.contains(type.id())) action.accept(handler.getPlayer());
+		});
+		//#endif
+	}
+
 	public static void onPlayerLeave(Consumer<ServerPlayer> action) {
 		//#if FABRIC>=1
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> action.accept(handler.getPlayer()));
@@ -198,6 +216,13 @@ public final class Platform {
 	//$$ 	declared.put(type, new Declared<>(type, codec, client, server));
 	//$$ }
 	//$$
+	//$$ /** The names of the packets the client reads: what a client tells a server without NeoForge that it takes. */
+	//$$ public static Set<Identifier> clientboundIds() {
+	//$$ 	Set<Identifier> ids = new LinkedHashSet<>();
+	//$$ 	for (Declared<?> one : declared.values()) if (one.toClient()) ids.add(one.type().id());
+	//$$ 	return ids;
+	//$$ }
+	//$$
 	//$$ /** The client's reader of a packet type; called by ClientPlatform, kept here for the one registration. */
 	//$$ public static <T extends CustomPacketPayload> void clientReader(CustomPacketPayload.Type<T> type, Consumer<T> reader) {
 	//$$ 	clientReaders.put(type, reader);
@@ -215,7 +240,12 @@ public final class Platform {
 	//$$ 	IPayloadHandler<T> reader = Platform::read;
 	//$$ 	// Both sides' readers given, in either order: the reader itself tells them apart. With one,
 	//$$ 	// NeoForge takes it for the server's alone and refuses to start without the client's.
+	//$$ 	// Before 21.11 there is a single reader for both sides.
+	//#if MC>=12111
 	//$$ 	if (one.toClient() && one.toServer()) registrar.playBidirectional(one.type(), one.codec(), reader, reader);
+	//#else
+	//$$ 	if (one.toClient() && one.toServer()) registrar.playBidirectional(one.type(), one.codec(), reader);
+	//#endif
 	//$$ 	else if (one.toClient()) registrar.playToClient(one.type(), one.codec(), reader);
 	//$$ 	else registrar.playToServer(one.type(), one.codec(), reader);
 	//$$ }

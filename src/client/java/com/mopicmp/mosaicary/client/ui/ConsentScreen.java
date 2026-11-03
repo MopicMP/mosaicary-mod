@@ -91,13 +91,13 @@ public final class ConsentScreen extends Screen {
 	public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
 		// The catalogue stays in view behind the dialog, dimmed.
 		if (parent != null) parent.extractRenderState(graphics, -10000, -10000, a);
-		graphics.nextStratum();
+		Theme.nextLayer(graphics);
 		graphics.fill(0, 0, width, height, 0xB0000000);
 	}
 
 	@Override
 	public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
-		if (CatalogueScreen.hideMouse) {
+		if (Theme.hideMouse) {
 			mouseX = -10000;
 			mouseY = -10000;
 		}

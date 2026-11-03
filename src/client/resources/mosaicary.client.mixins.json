@@ -2,12 +2,9 @@
 	"required": true,
 	"minVersion": "0.8",
 	"package": "com.mopicmp.mosaicary.client.mixin",
-	"compatibilityLevel": "JAVA_25",
+	"compatibilityLevel": "JAVA_@JAVA@",
+	"plugin": "com.mopicmp.mosaicary.client.mixin.ClientMixins",
 	"client": [
-		"AvatarRendererMixin",
-		"EntityRenderStateMixin",
-		"GuiGraphicsExtractorAccessor",
-		"LivingEntityRendererMixin",
 		"PlayerInfoMixin",
 		"ScreenAccessor",
 		"SkinTextureDownloaderMixin"

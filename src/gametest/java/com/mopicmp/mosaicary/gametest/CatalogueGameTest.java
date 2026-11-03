@@ -1,3 +1,5 @@
+//#if MC>=12111
+// Worn models and their catalogue are built from 1.21.11 on (docs/mod-versions-plan.md).
 package com.mopicmp.mosaicary.gametest;
 
 import java.util.List;
@@ -13,6 +15,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.PauseScreen;
 
@@ -41,7 +44,7 @@ public final class CatalogueGameTest implements FabricClientGameTest {
 			// The key.
 			context.getInput().pressKey(InputConstants.KEY_M);
 			context.waitForScreen(CatalogueScreen.class);
-			context.waitFor(minecraft -> {
+			context.waitFor((Minecraft minecraft) -> {
 				Catalogue catalogue = MosaicaryClient.instance().catalogue();
 				return catalogue.listState() != Catalogue.State.LOADING
 					&& catalogue.picturesSettled(((CatalogueScreen) minecraft.gui.screen()).shown());
@@ -50,13 +53,13 @@ public final class CatalogueGameTest implements FabricClientGameTest {
 			context.takeScreenshot("mosaicary-1-key-opens-catalogue");
 
 			// A real click on the first card.
-			double scale = context.computeOnClient(minecraft -> (double) minecraft.getWindow().getGuiScale());
-			List<ModelCard> shown = context.computeOnClient(minecraft -> ((CatalogueScreen) minecraft.gui.screen()).shown());
+			double scale = context.computeOnClient((Minecraft minecraft) -> (double) minecraft.getWindow().getGuiScale());
+			List<ModelCard> shown = context.computeOnClient((Minecraft minecraft) -> ((CatalogueScreen) minecraft.gui.screen()).shown());
 			if (shown.isEmpty()) throw new AssertionError("The catalogue shows no models to click");
 			context.getInput().setCursorPos(40 * scale, 60 * scale);
 			context.getInput().pressMouse(InputConstants.MOUSE_BUTTON_LEFT);
-			context.waitFor(minecraft -> ((CatalogueScreen) minecraft.gui.screen()).openCard() != null, 100);
-			context.waitFor(minecraft -> {
+			context.waitFor((Minecraft minecraft) -> ((CatalogueScreen) minecraft.gui.screen()).openCard() != null, 100);
+			context.waitFor((Minecraft minecraft) -> {
 				CatalogueScreen screen = (CatalogueScreen) minecraft.gui.screen();
 				return MosaicaryClient.instance().catalogue().model(screen.openCard()).state() != Catalogue.State.LOADING;
 			}, 20 * 120);
@@ -69,16 +72,16 @@ public final class CatalogueGameTest implements FabricClientGameTest {
 			// so a jump and a press in the same frame would count the jump as a drag.
 			context.getInput().setCursorPos(120 * scale, 120 * scale);
 			context.waitTicks(3);
-			float before = context.computeOnClient(minecraft -> ((CatalogueScreen) minecraft.gui.screen()).spin());
-			float tiltBefore = context.computeOnClient(minecraft -> ((CatalogueScreen) minecraft.gui.screen()).tilt());
+			float before = context.computeOnClient((Minecraft minecraft) -> ((CatalogueScreen) minecraft.gui.screen()).spin());
+			float tiltBefore = context.computeOnClient((Minecraft minecraft) -> ((CatalogueScreen) minecraft.gui.screen()).tilt());
 			context.getInput().holdMouse(InputConstants.MOUSE_BUTTON_LEFT);
 			for (int i = 0; i < 10; i++) {
 				context.getInput().moveCursor(12 * scale, 0);
 				context.waitTick();
 			}
 			context.getInput().releaseMouse(InputConstants.MOUSE_BUTTON_LEFT);
-			float after = context.computeOnClient(minecraft -> ((CatalogueScreen) minecraft.gui.screen()).spin());
-			float tiltAfter = context.computeOnClient(minecraft -> ((CatalogueScreen) minecraft.gui.screen()).tilt());
+			float after = context.computeOnClient((Minecraft minecraft) -> ((CatalogueScreen) minecraft.gui.screen()).spin());
+			float tiltAfter = context.computeOnClient((Minecraft minecraft) -> ((CatalogueScreen) minecraft.gui.screen()).tilt());
 			if (Math.abs(after - before) < 0.5f) {
 				throw new AssertionError("Dragging did not turn the model: spin " + before + " -> " + after);
 			}
@@ -91,7 +94,7 @@ public final class CatalogueGameTest implements FabricClientGameTest {
 
 			// Escape: back to the grid, then closed.
 			context.getInput().pressKey(InputConstants.KEY_ESCAPE);
-			context.waitFor(minecraft -> minecraft.gui.screen() instanceof CatalogueScreen screen && screen.openCard() == null, 100);
+			context.waitFor((Minecraft minecraft) -> minecraft.gui.screen() instanceof CatalogueScreen screen && screen.openCard() == null, 100);
 			context.getInput().pressKey(InputConstants.KEY_ESCAPE);
 			context.waitForScreen(null);
 
@@ -100,7 +103,7 @@ public final class CatalogueGameTest implements FabricClientGameTest {
 			context.waitForScreen(PauseScreen.class);
 			context.waitTicks(10);
 			context.takeScreenshot("mosaicary-4-pause-menu");
-			double[] button = context.computeOnClient(minecraft -> {
+			double[] button = context.computeOnClient((Minecraft minecraft) -> {
 				for (AbstractWidget widget : Screens.getWidgets(minecraft.gui.screen())) {
 					if (widget instanceof PauseMenuButton) {
 						return new double[] { widget.getX() + widget.getWidth() / 2.0, widget.getY() + widget.getHeight() / 2.0 };
@@ -123,3 +126,16 @@ public final class CatalogueGameTest implements FabricClientGameTest {
 		}
 	}
 }
+//#else
+//$$ package com.mopicmp.mosaicary.gametest;
+//$$
+//$$ import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
+//$$ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
+//$$
+//$$ /** The model catalogue is built from 1.21.11 on; before, there is nothing here to test. */
+//$$ public final class CatalogueGameTest implements FabricClientGameTest {
+//$$ 	@Override
+//$$ 	public void runTest(ClientGameTestContext context) {
+//$$ 	}
+//$$ }
+//#endif

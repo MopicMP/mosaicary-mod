@@ -1,0 +1,5 @@
+net.minecraft.resources.Identifier net.minecraft.resources.ResourceLocation
+net.minecraft.world.entity.player.PlayerSkin net.minecraft.client.resources.PlayerSkin
+net.minecraft.world.entity.player.PlayerModelType net.minecraft.client.resources.PlayerSkin$Model
+net.minecraft.client.gui.components.toasts.ToastManager net.minecraft.client.gui.components.toasts.ToastComponent
+net.minecraft.client.model.player.PlayerModel net.minecraft.client.model.PlayerModel

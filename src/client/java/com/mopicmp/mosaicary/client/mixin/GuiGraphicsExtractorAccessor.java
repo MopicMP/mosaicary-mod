@@ -1,3 +1,5 @@
+//#if MC>=12111
+// Worn models and their catalogue are built from 1.21.11 on (docs/mod-versions-plan.md).
 package com.mopicmp.mosaicary.client.mixin;
 
 import org.spongepowered.asm.mixin.Mixin;
@@ -17,3 +19,4 @@ public interface GuiGraphicsExtractorAccessor {
 	@Accessor("guiRenderState")
 	GuiRenderState mosaicary$guiRenderState();
 }
+//#endif

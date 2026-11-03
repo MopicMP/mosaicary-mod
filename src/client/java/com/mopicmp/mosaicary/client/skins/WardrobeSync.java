@@ -1,10 +1,12 @@
 package com.mopicmp.mosaicary.client.skins;
 
+import java.net.URI;
 import java.time.Duration;
 import java.util.EnumMap;
 import java.util.Map;
 
 import com.google.gson.JsonArray;
+import com.mojang.blaze3d.Blaze3D;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -296,7 +298,8 @@ public final class WardrobeSync {
 					linkInterval = Math.max(2, started.has("interval") ? started.get("interval").getAsInt() : 3) * 1000L;
 					linkNext = Util.getMillis() + linkInterval;
 					link = new Link(started.get("code").getAsString(), started.get("url").getAsString(), "waiting");
-					com.mojang.blaze3d.Blaze3D.openUri(java.net.URI.create(link.url()));
+					URI page = URI.create(link.url());
+					Blaze3D.openUri(page);
 				} catch (RuntimeException odd) {
 					link = new Link("", "", "failed");
 				}

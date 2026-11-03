@@ -1,6 +1,7 @@
-# Gradle and Loom
+# Gradle and Loom (anchored: src/client/java/.../client/build/ is a source package)
 .gradle/
-build/
+/build/
+/versions/*/build/
 out/
 bin/
 

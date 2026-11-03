@@ -1,0 +1,11 @@
+{
+	"required": true,
+	"minVersion": "0.8",
+	"package": "com.mopicmp.mosaicary.neoforge.mixin",
+	"compatibilityLevel": "JAVA_@JAVA@",
+	"plugin": "com.mopicmp.mosaicary.neoforge.mixin.NeoForgeMixins",
+	"mixins": [],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

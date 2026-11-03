@@ -3,6 +3,10 @@ package com.mopicmp.mosaicary.client.ui;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+//#if MC>=12111
+import net.minecraft.client.renderer.RenderPipelines;
+//#endif
 
 /**
  * The catalogue's colours and the one shape everything sits in: a flat card.
@@ -36,7 +40,53 @@ public final class Theme {
 	public static final int WARN = 0xFFFFB86B;
 	public static final int ERROR = 0xFFFF8A80;
 
+	/**
+	 * Set by the screenshot run: screens are drawn as if the mouse were far away, so no hover
+	 * state or tooltip lands in a screenshot.
+	 */
+	public static boolean hideMouse;
+
 	private Theme() { }
+
+	/**
+	 * Part of a texture drawn into a place on the screen. Before 1.21.6 the game takes the place's
+	 * size before the part's corner, and has no pipeline to name.
+	 */
+	public static void blit(GuiGraphicsExtractor graphics, Identifier texture, int x, int y, float u, float v,
+			int width, int height, int regionWidth, int regionHeight, int textureWidth, int textureHeight) {
+		//#if MC>=12111
+		graphics.blit(RenderPipelines.GUI_TEXTURED, texture, x, y, u, v, width, height, regionWidth, regionHeight, textureWidth, textureHeight);
+		//#else
+		//$$ com.mojang.blaze3d.systems.RenderSystem.enableBlend();
+		//$$ graphics.blit(texture, x, y, width, height, u, v, regionWidth, regionHeight, textureWidth, textureHeight);
+		//#endif
+	}
+
+	/** The same, tinted with an ARGB colour; before 1.21.6 the tint is set around the drawing. */
+	public static void blit(GuiGraphicsExtractor graphics, Identifier texture, int x, int y, float u, float v,
+			int width, int height, int regionWidth, int regionHeight, int textureWidth, int textureHeight, int colour) {
+		//#if MC>=12111
+		graphics.blit(RenderPipelines.GUI_TEXTURED, texture, x, y, u, v, width, height, regionWidth, regionHeight, textureWidth, textureHeight, colour);
+		//#else
+		//$$ graphics.setColor((colour >> 16 & 0xFF) / 255f, (colour >> 8 & 0xFF) / 255f, (colour & 0xFF) / 255f, (colour >>> 24) / 255f);
+		//$$ blit(graphics, texture, x, y, u, v, width, height, regionWidth, regionHeight, textureWidth, textureHeight);
+		//$$ graphics.setColor(1, 1, 1, 1);
+		//#endif
+	}
+
+	/**
+	 * Whatever is drawn next goes over everything drawn so far. Before 1.21.6 the screen is drawn
+	 * straight away rather than in layers, so what is drawn next is already on top, except where a
+	 * figure drawn in depth would hide it: the depth is cleared.
+	 */
+	public static void nextLayer(GuiGraphicsExtractor graphics) {
+		//#if MC>=12111
+		graphics.nextStratum();
+		//#else
+		//$$ graphics.flush();
+		//$$ com.mojang.blaze3d.systems.RenderSystem.clear(org.lwjgl.opengl.GL11.GL_DEPTH_BUFFER_BIT, net.minecraft.client.Minecraft.ON_OSX);
+		//#endif
+	}
 
 	/** A flat card with a one-pixel edge. */
 	public static void card(GuiGraphicsExtractor graphics, int x0, int y0, int x1, int y1, int fill, int edge) {

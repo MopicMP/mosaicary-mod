@@ -1,3 +1,5 @@
+//#if MC>=12111
+// Worn models and their catalogue are built from 1.21.11 on (docs/mod-versions-plan.md).
 package com.mopicmp.mosaicary.gametest;
 
 import com.mojang.blaze3d.platform.InputConstants;
@@ -8,6 +10,7 @@ import com.mopicmp.mosaicary.client.ui.CatalogueScreen;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
+import net.minecraft.client.Minecraft;
 
 /**
  * Wearing a model, with real input: open the catalogue, open a model, press Wear and
@@ -60,8 +63,8 @@ public final class WearGameTest implements FabricClientGameTest {
 			// Taking it off through the same button.
 			Steps.openCatalogue(context);
 			Steps.openModel(context, RIGGED);
-			Steps.click(context, context.computeOnClient(minecraft -> ((CatalogueScreen) minecraft.gui.screen()).wearButton()));
-			if (context.computeOnClient(minecraft -> MosaicaryClient.instance().wearing().worn()) != null) {
+			Steps.click(context, context.computeOnClient((Minecraft minecraft) -> ((CatalogueScreen) minecraft.gui.screen()).wearButton()));
+			if (context.computeOnClient((Minecraft minecraft) -> MosaicaryClient.instance().wearing().worn()) != null) {
 				throw new AssertionError("Take off left the model on");
 			}
 			context.getInput().pressKey(InputConstants.KEY_ESCAPE);
@@ -77,3 +80,16 @@ public final class WearGameTest implements FabricClientGameTest {
 		}
 	}
 }
+//#else
+//$$ package com.mopicmp.mosaicary.gametest;
+//$$
+//$$ import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
+//$$ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
+//$$
+//$$ /** The model catalogue is built from 1.21.11 on; before, there is nothing here to test. */
+//$$ public final class WearGameTest implements FabricClientGameTest {
+//$$ 	@Override
+//$$ 	public void runTest(ClientGameTestContext context) {
+//$$ 	}
+//$$ }
+//#endif

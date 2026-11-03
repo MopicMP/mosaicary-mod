@@ -21,8 +21,9 @@ import com.mopicmp.mosaicary.client.skins.Skins;
 
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
+//#if MC>=12111
 import net.minecraft.client.input.MouseButtonEvent;
-import net.minecraft.client.renderer.RenderPipelines;
+//#endif
 import net.minecraft.network.chat.Component;
 
 /**
@@ -338,7 +339,7 @@ public final class SkinFileScreen extends Screen {
 				int x = left + 1 + (grid.cardWidth() - 2 - side) / 2;
 				int y = top + 1 + (grid.pictureHeight() - side) / 2;
 				Skins.Picture picture = thumb.picture();
-				graphics.blit(RenderPipelines.GUI_TEXTURED, picture.texture(), x, y, 0, 0, side, side, picture.width(), picture.height(),
+				Theme.blit(graphics, picture.texture(), x, y, 0, 0, side, side, picture.width(), picture.height(),
 					picture.width(), picture.height());
 			} else {
 				Icons.draw(graphics, thumb.failed() ? Icon.ERROR : Icon.LOADING, middleX, middleY, 0xB0FFFFFF);
@@ -383,10 +384,22 @@ public final class SkinFileScreen extends Screen {
 		}
 	}
 
+	//#if MC>=12111
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
 		if (super.mouseClicked(event, doubleClick)) return true;
-		int index = itemAt(event.x(), event.y());
+		return clicked(event.x(), event.y());
+	}
+	//#else
+	//$$ @Override
+	//$$ public boolean mouseClicked(double mouseX, double mouseY, int button) {
+	//$$ 	if (super.mouseClicked(mouseX, mouseY, button)) return true;
+	//$$ 	return clicked(mouseX, mouseY);
+	//$$ }
+	//#endif
+
+	private boolean clicked(double x, double y) {
+		int index = itemAt(x, y);
 		if (index < 0) return false;
 		Item item = items.get(index);
 		if (item.isFolder()) {

@@ -11,13 +11,16 @@ import com.mopicmp.mosaicary.Mosaicary;
 import com.mopicmp.mosaicary.client.platform.ClientPlatform;
 import com.mopicmp.mosaicary.client.render.Pictures;
 import com.mopicmp.mosaicary.client.site.ModelCard;
-import com.mopicmp.mosaicary.client.ui.CatalogueScreen;
 import com.mopicmp.mosaicary.client.skins.FreshMoves;
 import com.mopicmp.mosaicary.client.skins.SkinCard;
 import com.mopicmp.mosaicary.client.ui.MenuSkin;
 import com.mopicmp.mosaicary.client.ui.PauseMenuButton;
 import com.mopicmp.mosaicary.client.ui.ScreenWidgets;
 import com.mopicmp.mosaicary.client.ui.SkinsScreen;
+import com.mopicmp.mosaicary.client.ui.Theme;
+//#if MC>=12111
+import com.mopicmp.mosaicary.client.ui.CatalogueScreen;
+//#endif
 
 import com.mojang.blaze3d.platform.InputConstants;
 
@@ -30,7 +33,9 @@ import net.minecraft.client.gui.screens.ConnectScreen;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
+//#if MC>=12111
 import net.minecraft.client.input.KeyEvent;
+//#endif
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.client.multiplayer.resolver.ServerAddress;
 
@@ -85,7 +90,9 @@ final class Shots {
 	private int stable;
 	private int scale;
 	private long started;
+	//#if MC>=12111
 	private CatalogueScreen screen;
+	//#endif
 	private SkinsScreen wardrobe;
 	private SkinCard opened;
 	private int paintedBefore;
@@ -112,7 +119,7 @@ final class Shots {
 	static void start(Path folder, MosaicaryClient client) {
 		Shots shots = new Shots(folder, client);
 		Mosaicary.LOGGER.info("Screenshot run: pictures go to {}", folder.toAbsolutePath());
-		CatalogueScreen.hideMouse = true;
+		Theme.hideMouse = true;
 		ClientPlatform.onTick(shots::tick);
 	}
 
@@ -122,15 +129,14 @@ final class Shots {
 		waited++;
 		switch (step) {
 			case WAIT_TITLE -> {
-				//#if NEOFORGE>=1
-				//$$ // NeoForge lists warnings about mods (other mods' too) on a screen of its own before the menu;
-				//$$ // they are in the log, and the run goes on as the screen's Proceed button would.
-				//$$ if (minecraft.gui.screen() instanceof net.neoforged.neoforge.client.gui.LoadingErrorScreen) {
-				//$$ 	Mosaicary.LOGGER.info("Screenshot run: NeoForge showed its loading warnings; going on to the title screen");
-				//$$ 	minecraft.gui.setScreen(new TitleScreen());
-				//$$ 	return;
-				//$$ }
-				//#endif
+				// NeoForge lists warnings about mods (other mods' too) on a screen of its own before the menu;
+				// they are in the log, and the run goes on as the screen's Proceed button would. The game's
+				// own calls stay outside the loader's branch, where the preprocessor converts them.
+				if (loadingWarnings(minecraft.gui.screen())) {
+					Mosaicary.LOGGER.info("Screenshot run: NeoForge showed its loading warnings; going on to the title screen");
+					minecraft.gui.setScreen(new TitleScreen());
+					return;
+				}
 				// A game folder used for the first time opens on the accessibility questions; they are taken as answered.
 				if (minecraft.gui.screen() instanceof AccessibilityOnboardingScreen) {
 					minecraft.options.onboardingAccessibilityFinished();
@@ -156,9 +162,14 @@ final class Shots {
 						go(Step.SHOOT_TITLE);
 						return;
 					}
+					//#if MC>=12111
 					screen = client.open(minecraft.gui.screen());
 					Mosaicary.LOGGER.info("Screenshot run: catalogue opened");
 					go(Step.SCALE);
+					//#else
+					//$$ Mosaicary.LOGGER.info("Screenshot run: no model catalogue in this game version");
+					//$$ go(Step.QUIT);
+					//#endif
 				}
 			}
 			case SHOOT_TITLE -> {
@@ -266,7 +277,11 @@ final class Shots {
 						if (widget instanceof PauseMenuButton found) button = found;
 					}
 					serverLog(button == null ? "no wardrobe button on the pause menu" : "the pause menu has the wardrobe button");
+					//#if MC>=12111
 					if (button != null) button.onPress(new KeyEvent(InputConstants.KEY_RETURN, 0, 0));
+					//#else
+					//$$ if (button != null) button.onPress();
+					//#endif
 					go(Step.WAIT_SERVER_WARDROBE);
 				} else if (waited > LIMIT_TICKS) {
 					serverLog("the pause menu did not open");
@@ -296,6 +311,7 @@ final class Shots {
 					go(Step.QUIT);
 				}
 			}
+			//#if MC>=12111
 			case SCALE -> {
 				scale = scales.remove(0);
 				minecraft.options.guiScale().set(scale);
@@ -383,6 +399,7 @@ final class Shots {
 					go(Step.NEXT_FRAME);
 				}
 			}
+			//#endif
 			case QUIT -> {
 				Mosaicary.LOGGER.info("Screenshot run finished");
 				step = Step.DONE;
@@ -392,17 +409,29 @@ final class Shots {
 		}
 	}
 
+	private static boolean loadingWarnings(Screen screen) {
+		//#if NEOFORGE>=1
+		//$$ return screen instanceof net.neoforged.neoforge.client.gui.LoadingErrorScreen;
+		//#else
+		return false;
+		//#endif
+	}
+
 	/** The wardrobe's settings, opened the way the loader's list of mods opens them. */
 	private static void openSettings(Minecraft minecraft) {
-		Screen parent = minecraft.gui.screen();
+		Screen settings = settingsFromModList(minecraft.gui.screen());
+		if (settings != null) minecraft.gui.setScreen(settings);
+	}
+
+	private static Screen settingsFromModList(Screen parent) {
 		//#if NEOFORGE>=1
 		//$$ net.neoforged.fml.ModContainer mod = net.neoforged.fml.ModList.get().getModContainerById(Mosaicary.ID).orElseThrow();
 		//$$ var factory = net.neoforged.neoforge.client.gui.IConfigScreenFactory.getForMod(mod.getModInfo());
 		//$$ Mosaicary.LOGGER.info("Screenshot run: the mod list's Config button {}", factory.isPresent() ? "is there" : "is missing");
-		//$$ if (factory.isPresent()) minecraft.gui.setScreen(factory.get().createScreen(mod, parent));
+		//$$ return factory.isPresent() ? factory.get().createScreen(mod, parent) : null;
 		//#else
 		// Mod Menu, when it is there, opens the same screen (client/compat/ModMenuEntry).
-		minecraft.gui.setScreen(new com.mopicmp.mosaicary.client.ui.SettingsScreen(parent));
+		return new com.mopicmp.mosaicary.client.ui.SettingsScreen(parent);
 		//#endif
 	}
 
@@ -428,19 +457,27 @@ final class Shots {
 		} catch (Exception failed) {
 			Mosaicary.LOGGER.warn("Cannot create {}: {}", folder, failed.toString());
 		}
-		Screenshot.takeScreenshot(minecraft.gameRenderer.mainRenderTarget(), image -> {
-			try (image) {
-				image.writeToFile(target);
-				Mosaicary.LOGGER.info("Screenshot written: {} ({} x {}, GUI scale {})", target.toAbsolutePath(),
-					image.getWidth(), image.getHeight(), minecraft.getWindow().getGuiScale());
-			} catch (Exception failed) {
-				Mosaicary.LOGGER.warn("Screenshot {} failed: {}", target, failed.toString());
-			} finally {
-				minecraft.execute(() -> writing = false);
-			}
-		});
+		// Before 1.21.5 the picture is read back at once rather than handed over later.
+		//#if MC>=12111
+		Screenshot.takeScreenshot(minecraft.gameRenderer.mainRenderTarget(), image -> write(minecraft, image, target));
+		//#else
+		//$$ write(minecraft, Screenshot.takeScreenshot(minecraft.getMainRenderTarget()), target);
+		//#endif
 	}
 
+	private void write(Minecraft minecraft, NativeImage image, Path target) {
+		try (image) {
+			image.writeToFile(target);
+			Mosaicary.LOGGER.info("Screenshot written: {} ({} x {}, GUI scale {})", target.toAbsolutePath(),
+				image.getWidth(), image.getHeight(), minecraft.getWindow().getGuiScale());
+		} catch (Exception failed) {
+			Mosaicary.LOGGER.warn("Screenshot {} failed: {}", target, failed.toString());
+		} finally {
+			minecraft.execute(() -> writing = false);
+		}
+	}
+
+	//#if MC>=12111
 	/** The site's card picture for the model, as PNG, for comparing with the 3D preview. */
 	private void writeSitePicture(ModelCard card) {
 		client.catalogue().site().preview(card).thenAccept(bytes -> {
@@ -454,4 +491,5 @@ final class Shots {
 			}
 		});
 	}
+	//#endif
 }

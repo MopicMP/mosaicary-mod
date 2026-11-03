@@ -8,7 +8,9 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
+//#if MC>=12111
 import net.minecraft.client.input.MouseButtonEvent;
+//#endif
 import net.minecraft.network.chat.Component;
 
 /**
@@ -71,8 +73,13 @@ public class IconButton extends AbstractWidget {
 		return this;
 	}
 
+	//#if MC>=12111
 	@Override
 	public void onClick(MouseButtonEvent event, boolean doubleClick) {
+	//#else
+	//$$ @Override
+	//$$ public void onClick(double mouseX, double mouseY) {
+	//#endif
 		if (active) onPress.run();
 	}
 

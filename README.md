@@ -2,7 +2,7 @@
 
 A skin wardrobe for Minecraft. Browse the skin catalogue of [mosaicary.com](https://mosaicary.com) in the game, see each skin on the player model, and wear it in one click.
 
-For **Fabric** and **NeoForge**, Minecraft 26.3. [Русский](#русский)
+For **Fabric** and **NeoForge**, Minecraft 26.3, 1.21.11 and 1.21.1. [Русский](#русский)
 
 **Download:** [CurseForge](https://www.curseforge.com/minecraft/mc-mods/mosaicary)
 
@@ -30,12 +30,12 @@ For **Fabric** and **NeoForge**, Minecraft 26.3. [Русский](#русски�
 
 ## Requirements
 
-- Minecraft 26.3
-- Java 25
+- Minecraft 26.3, 1.21.11 or 1.21.1
+- Java 25 for 26.3, Java 21 for 1.21.11 and 1.21.1
 - On Fabric: Fabric Loader 0.19.5 or newer and Fabric API
-- On NeoForge: NeoForge for 26.3
+- On NeoForge: NeoForge for your version of the game
 
-Each loader has its own file; take the one for yours.
+Each version of the game and each loader has its own file; take the one for yours.
 
 Optional: on Fabric, [Mod Menu](https://modrinth.com/mod/modmenu), for the settings button in its list (on NeoForge the settings open from the Config button in the mod list), and the three projects under Live eyes above. The mod works without them, in single player and on any server. The server does not need it.
 
@@ -47,20 +47,20 @@ The catalogue comes from the site. With sharing on, which the mod asks about on 
 
 ## Building from source
 
-You need JDK 25; Gradle finds it by itself once it is installed.
+You need JDK 25 and JDK 21 (for 1.21.11 and 1.21.1); Gradle finds them by itself once they are installed.
 
 ```
 ./gradlew build
 ```
 
-The jars land in `versions/26.3-fabric/build/libs/` and `versions/26.3-neoforge/build/libs/`. Both are built from the one source in `src/`: lines marked `//#if FABRIC` or `//#if NEOFORGE` are kept for one loader only.
+The jars land in `versions/<game version>-<loader>/build/libs/`, for example `versions/1.21.1-neoforge/build/libs/`. All of them are built from the one source in `src/`: lines marked `//#if FABRIC`, `//#if NEOFORGE` or `//#if MC>=…` are kept only for that loader or those versions.
 
 ```
 ./gradlew test
 ./gradlew :26.3-fabric:runClientGameTest
 ```
 
-The first runs the tests that need no game. The second starts the game and drives it with real input, and it needs a connection to mosaicary.com for the catalogue.
+The first runs the tests that need no game. The second starts the game and drives it with real input, and it needs a connection to mosaicary.com for the catalogue. It runs on 26.3 and 1.21.11; Fabric API has no such tests for 1.21.1.
 
 The source also holds parts this release keeps hidden: worn 3D models and a quick ring. They may change or go away.
 
@@ -78,7 +78,7 @@ Not an official Minecraft product. Not approved by or associated with Mojang or 
 
 Гардероб скинов для Minecraft. Каталог скинов с [mosaicary.com](https://mosaicary.com) прямо в игре: посмотреть скин на модели игрока и надеть его одним нажатием.
 
-Для **Fabric** и **NeoForge**, Minecraft 26.3.
+Для **Fabric** и **NeoForge**, Minecraft 26.3, 1.21.11 и 1.21.1.
 
 **Скачать:** [CurseForge](https://www.curseforge.com/minecraft/mc-mods/mosaicary)
 
@@ -98,12 +98,12 @@ Not an official Minecraft product. Not approved by or associated with Mojang or 
 
 ## Что нужно
 
-- Minecraft 26.3
-- Java 25
+- Minecraft 26.3, 1.21.11 или 1.21.1
+- Java 25 для 26.3, Java 21 для 1.21.11 и 1.21.1
 - На Fabric: Fabric Loader 0.19.5 или новее и Fabric API
-- На NeoForge: NeoForge для 26.3
+- На NeoForge: NeoForge для вашей версии игры
 
-У каждого загрузчика свой файл, берите тот, что для вашего.
+У каждой версии игры и каждого загрузчика свой файл, берите тот, что для вашего.
 
 Необязательно: на Fabric — [Mod Menu](https://modrinth.com/mod/modmenu), чтобы открывать настройки из его списка (на NeoForge они открываются кнопкой Config в списке модов), и три проекта из пункта про живые глаза. Мод работает и без них, в одиночной игре и на любом сервере. Серверу мод не нужен.
 
@@ -115,13 +115,13 @@ Not an official Minecraft product. Not approved by or associated with Mojang or 
 
 ## Сборка
 
-Нужен JDK 25.
+Нужны JDK 25 и JDK 21 (для 1.21.11 и 1.21.1); Gradle находит их сам, когда они установлены.
 
 ```
 ./gradlew build
 ```
 
-Готовые файлы появятся в `versions/26.3-fabric/build/libs/` и `versions/26.3-neoforge/build/libs/`. Оба собираются из одного кода в `src/`: строки с пометкой `//#if FABRIC` или `//#if NEOFORGE` остаются только для своего загрузчика.
+Готовые файлы появятся в `versions/<версия игры>-<загрузчик>/build/libs/`, например `versions/1.21.1-neoforge/build/libs/`. Все собираются из одного кода в `src/`: строки с пометкой `//#if FABRIC`, `//#if NEOFORGE` или `//#if MC>=…` остаются только для своего загрузчика или своих версий.
 
 ## Лицензия
 

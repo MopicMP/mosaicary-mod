@@ -5,7 +5,9 @@ import com.mopicmp.mosaicary.client.platform.ClientPlatform;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.server.IntegratedServer;
+//#if MC>=260100
 import net.minecraft.server.MinecraftServer;
+//#endif
 
 /**
  * A development-only helper for trying the mod with two players on one machine: once a world
@@ -38,7 +40,11 @@ final class DevLan {
 			return;
 		}
 		if (published || minecraft.player == null || server.isPublished()) return;
+		//#if MC>=260100
 		published = server.publishServer(MinecraftServer.MultiplayerScope.LAN, false, port);
+		//#else
+		//$$ published = server.publishServer(server.getDefaultGameType(), false, port);
+		//#endif
 		server.setUsesAuthentication(false);
 		Mosaicary.LOGGER.info("Development LAN: {} on port {}", published ? "the world is open" : "could not open the world", port);
 	}

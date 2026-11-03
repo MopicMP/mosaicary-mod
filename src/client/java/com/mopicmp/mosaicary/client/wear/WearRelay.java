@@ -27,7 +27,6 @@ import com.mojang.authlib.EnvironmentParser;
 import com.mojang.authlib.services.MinecraftServicesEnvironment;
 import com.mojang.authlib.services.MinecraftServicesSessionService;
 import com.mopicmp.mosaicary.Mosaicary;
-import com.mopicmp.mosaicary.client.Catalogue;
 import com.mopicmp.mosaicary.client.model.Roles;
 import com.mopicmp.mosaicary.client.site.ModelCard;
 import com.mopicmp.mosaicary.client.site.Settings;
@@ -74,7 +73,7 @@ import net.minecraft.world.entity.player.ProfileKeyPair;
  *
  * Everything here runs on the client thread; answers hop back to it.
  */
-public final class WearRelay implements Wearing.Listener {
+public final class WearRelay implements WornModels.Listener {
 
 	/** What the relay is doing, or why it is not; the settings screen has words for each. */
 	public enum Status {
@@ -139,8 +138,8 @@ public final class WearRelay implements Wearing.Listener {
 
 	private record KnownCard(ModelCard card, long at) { }
 
-	private final Catalogue catalogue;
-	private final Wearing wearing;
+	/** The worn models, or null where the game version has no model catalogue. */
+	private final WornModels models;
 	private final Settings settings;
 	private final SiteClient site;
 
@@ -176,13 +175,12 @@ public final class WearRelay implements Wearing.Listener {
 	private final Map<String, KnownCard> cards = new HashMap<>();
 	private final Map<String, List<Consumer<ModelCard>>> cardWaiters = new HashMap<>();
 
-	public WearRelay(Catalogue catalogue, Wearing wearing, Settings settings) {
-		this.catalogue = catalogue;
-		this.wearing = wearing;
+	public WearRelay(SiteClient site, WornModels models, Settings settings) {
+		this.models = models;
 		this.settings = settings;
-		this.site = catalogue.site();
+		this.site = site;
 		this.lastSharing = settings.sharing;
-		wearing.listen(this);
+		if (models != null) models.listen(this);
 	}
 
 	public Status status() {
@@ -242,7 +240,7 @@ public final class WearRelay implements Wearing.Listener {
 			it.remove();
 			askedAt.remove(entry.getKey());
 			queue.remove(entry.getKey());
-			if (shownByRelay.remove(entry.getKey())) wearing.setOther(entry.getKey(), null, null, 1);
+			if (shownByRelay.remove(entry.getKey())) takeOff(entry.getKey());
 		}
 		if (now >= nextBatch && inFlight == 0 && !queue.isEmpty()) {
 			nextBatch = now + BATCH_MS;
@@ -269,7 +267,7 @@ public final class WearRelay implements Wearing.Listener {
 		if (now < pausedUntil) return Status.PAUSED;
 		Status account = accountStatus(minecraft);
 		Status noProof = account != null ? account
-			: !minecraft.isLocalServer() && !connection.onlineMode() ? Status.OFFLINE_SERVER
+			: !minecraft.isLocalServer() && !onlineMode(connection) ? Status.OFFLINE_SERVER
 			: now < noKeyUntil ? Status.NO_KEY
 			: now < refusedUntil ? Status.REFUSED
 			: null;
@@ -294,6 +292,18 @@ public final class WearRelay implements Wearing.Listener {
 	}
 
 	/**
+	 * Whether the server checks who joins with Mojang. Servers say so since 26.1; before, the
+	 * client is not told, and the server is taken to check.
+	 */
+	private static boolean onlineMode(ClientPacketListener connection) {
+		//#if MC>=260100
+		return connection.onlineMode();
+		//#else
+		//$$ return true;
+		//#endif
+	}
+
+	/**
 	 * The game's own session service, pointed at Mojang's services: the exact class
 	 * the game makes, and no environment chosen by the system properties other than
 	 * the production one.
@@ -306,7 +316,7 @@ public final class WearRelay implements Wearing.Listener {
 
 	/** Forgets every model shown on others. */
 	private void forgetShown() {
-		for (UUID id : shownByRelay) wearing.setOther(id, null, null, 1);
+		for (UUID id : shownByRelay) takeOff(id);
 		shownByRelay.clear();
 		queue.clear();
 		askedAt.clear();
@@ -557,15 +567,15 @@ public final class WearRelay implements Wearing.Listener {
 		uploadWanted = false;
 		uploading = true;
 		lastUpload = now;
-		ModelCard worn = com.mopicmp.mosaicary.client.MosaicaryClient.MODELS ? wearing.worn() : null;
+		ModelCard worn = com.mopicmp.mosaicary.client.MosaicaryClient.MODELS && models != null ? models.worn() : null;
 		JsonObject body = new JsonObject();
 		// A model from the player's own files is not on the site: nothing to show others.
 		boolean onSite = worn != null && !worn.isLocal();
 		if (onSite) {
 			body.addProperty("model", worn.id());
-			body.add("roles", JsonParser.parseString(Roles.toJson(wearing.rolesToSend(worn))));
+			body.add("roles", JsonParser.parseString(Roles.toJson(models.rolesToSend(worn))));
 			// The size picked for this model, over its own size; the site keeps it to a thousandth.
-			body.addProperty("scale", wearing.scaleFor(worn));
+			body.addProperty("scale", models.scaleFor(worn));
 		} else {
 			body.add("model", JsonNull.INSTANCE);
 		}
@@ -670,7 +680,7 @@ public final class WearRelay implements Wearing.Listener {
 				adult = entry.has("adult") && entry.get("adult").isJsonPrimitive() && entry.get("adult").getAsBoolean();
 				if (entry.has("roles")) roles = Roles.fromJson(entry.get("roles").toString());
 				if (entry.get("scale") instanceof com.google.gson.JsonPrimitive number && number.isNumber()) {
-					scale = Wearing.cleanScale(number.getAsDouble());
+					scale = WornModels.cleanScale(number.getAsDouble());
 				}
 			} catch (RuntimeException odd) {
 				model = null;
@@ -718,25 +728,30 @@ public final class WearRelay implements Wearing.Listener {
 	 */
 	private void show(UUID player, String model, boolean adult, Map<String, String> roles, double scale, Status path) {
 		// With the model shelf hidden, models are neither worn nor drawn on others.
-		if (!com.mopicmp.mosaicary.client.MosaicaryClient.MODELS) model = null;
+		if (!com.mopicmp.mosaicary.client.MosaicaryClient.MODELS || models == null) model = null;
 		if (model == null || adult) {
-			if (shownByRelay.remove(player)) wearing.setOther(player, null, null, 1);
+			if (shownByRelay.remove(player)) takeOff(player);
 			return;
 		}
 		cardFor(model, card -> {
 			if (status != path || (path == Status.SITE && !seenAt.containsKey(player))) return;
 			if (card == null || card.adult()) {
-				if (shownByRelay.remove(player)) wearing.setOther(player, null, null, 1);
+				if (shownByRelay.remove(player)) takeOff(player);
 				return;
 			}
-			wearing.setOther(player, card, roles, scale);
+			models.setOther(player, card, roles, scale);
 			shownByRelay.add(player);
 		});
 	}
 
+	/** Takes off the model the relay showed on another player. */
+	private void takeOff(UUID player) {
+		if (models != null) models.setOther(player, null, null, 1);
+	}
+
 	/** A model's card: from the catalogue's list when it is there, else from the site, kept for ten minutes. */
 	private void cardFor(String id, Consumer<ModelCard> then) {
-		for (ModelCard listed : catalogue.cards()) {
+		for (ModelCard listed : models.cards()) {
 			if (listed.id().equals(id)) {
 				then.accept(listed);
 				return;

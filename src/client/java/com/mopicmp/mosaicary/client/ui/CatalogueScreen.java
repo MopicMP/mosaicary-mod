@@ -1,3 +1,5 @@
+//#if MC>=12111
+// Worn models and their catalogue are built from 1.21.11 on (docs/mod-versions-plan.md).
 package com.mopicmp.mosaicary.client.ui;
 
 import java.net.URI;
@@ -55,12 +57,6 @@ public final class CatalogueScreen extends Screen {
 	private static final int CARD_TARGET = 104;
 
 	private static final Component TITLE = Component.translatable("mosaicary.catalogue.title");
-
-	/**
-	 * Set by the screenshot run: the screen is drawn as if the mouse were far away,
-	 * so no hover state or tooltip lands in a screenshot.
-	 */
-	public static boolean hideMouse;
 
 	private final Screen parent;
 	private final Catalogue catalogue;
@@ -132,9 +128,13 @@ public final class CatalogueScreen extends Screen {
 		initBottom();
 	}
 
+	private void openSettings() {
+		minecraft.gui.setScreen(new SettingsScreen(this));
+	}
+
 	private void initGrid(int right) {
 		settingsButton = IconButton.square(right - ROW, topRowY(), ROW, Icon.SETTINGS,
-			Component.translatable("mosaicary.settings.title"), () -> minecraft.gui.setScreen(new SettingsScreen(this)));
+			Component.translatable("mosaicary.settings.title"), this::openSettings);
 		addRenderableWidget(settingsButton);
 		right -= ROW + GAP;
 		addRenderableWidget(IconButton.square(right - ROW, topRowY(), ROW, Icon.REFRESH,
@@ -708,7 +708,8 @@ public final class CatalogueScreen extends Screen {
 		int x = layout.infoX0 + 6;
 		Catalogue.Model model = catalogue.model(card);
 		if (model.state() != Catalogue.State.READY) {
-			graphics.text(font, Component.translatable("mosaicary.detail.loading"), x, layout.infoY0 + 6 + TAB + 10, Theme.TEXT_DIM, false);
+			int loadingY = layout.infoY0 + 6 + TAB + 10;
+			graphics.text(font, Component.translatable("mosaicary.detail.loading"), x, loadingY, Theme.TEXT_DIM, false);
 			return;
 		}
 		for (Map.Entry<String, Dropdown<String>> entry : roleBoxes.entrySet()) {
@@ -844,7 +845,8 @@ public final class CatalogueScreen extends Screen {
 	private void download() {
 		Catalogue.Download state = catalogue.download(open);
 		if (state != null && state.state() == Catalogue.State.READY) {
-			Blaze3D.openPath(state.where().getParent());
+			Path folder = state.where().getParent();
+			Blaze3D.openPath(folder);
 			return;
 		}
 		catalogue.startDownload(open);
@@ -1016,7 +1018,7 @@ public final class CatalogueScreen extends Screen {
 
 	@Override
 	public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
-		if (hideMouse) {
+		if (Theme.hideMouse) {
 			mouseX = -10000;
 			mouseY = -10000;
 		}
@@ -1607,3 +1609,4 @@ public final class CatalogueScreen extends Screen {
 		return catalogue;
 	}
 }
+//#endif

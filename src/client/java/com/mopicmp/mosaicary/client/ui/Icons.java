@@ -4,7 +4,6 @@ import com.mopicmp.mosaicary.Mosaicary;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
 
 /**
@@ -49,8 +48,9 @@ public final class Icons {
 
 	/** Draws the icon tinted; the sheets are white, so the tint is the colour. */
 	public static void draw(GuiGraphicsExtractor graphics, Icon icon, int x, int y, int colour) {
-		int cell = cellFor(Minecraft.getInstance().getWindow().getGuiScale());
-		graphics.blit(RenderPipelines.GUI_TEXTURED, sheet(cell), x, y, icon.column * cell, icon.row * cell,
+		// A whole number before 1.21.6 too, where the game keeps the scale as a double.
+		int cell = cellFor((int) Minecraft.getInstance().getWindow().getGuiScale());
+		Theme.blit(graphics, sheet(cell), x, y, icon.column * cell, icon.row * cell,
 			SIZE, SIZE, cell, cell, Icon.COLUMNS * cell, Icon.ROWS * cell, colour);
 	}
 }

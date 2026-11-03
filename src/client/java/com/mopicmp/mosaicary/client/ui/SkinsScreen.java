@@ -5,6 +5,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.BooleanSupplier;
 
 import com.mojang.blaze3d.Blaze3D;
 import com.mojang.blaze3d.platform.InputConstants;
@@ -23,11 +24,11 @@ import com.mopicmp.mosaicary.wardrobe.Wardrobe;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+//#if MC>=12111
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
-import net.minecraft.client.model.Model;
-import net.minecraft.client.renderer.RenderPipelines;
+//#endif
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 import net.minecraft.resources.Identifier;
@@ -73,9 +74,6 @@ public final class SkinsScreen extends Screen {
 	private static final int ROW = 22;
 	private static final int CARD_TARGET = 96;
 
-	/** Set by the screenshot run: drawn as if the mouse were far away. */
-	public static boolean hideMouse;
-
 	public enum Tab { CATALOGUE, WARDROBE }
 
 	// What the screen shows, kept between openings.
@@ -111,8 +109,8 @@ public final class SkinsScreen extends Screen {
 	private long noticeUntil;
 	private int noticeTint = Theme.ACCENT;
 
-	private Model.Simple wideModel;
-	private Model.Simple slimModel;
+	private PlayerPose.Figure wideModel;
+	private PlayerPose.Figure slimModel;
 
 	public SkinsScreen(Screen parent, Skins skins) {
 		super(Component.translatable("mosaicary.skins.title"));
@@ -359,7 +357,8 @@ public final class SkinsScreen extends Screen {
 		// The strip: the first line as fits, the whole of it in the tooltip.
 		int room = freshStripTextRight - textX - 4;
 		String text = place.lines().isEmpty() ? "" : freshLines(freshShown).get(0).getString();
-		graphics.text(font, ellipsis(text, room), textX, place.y0() + (NOTICE_STRIP - 8) / 2, Theme.WARN, false);
+		int textY = place.y0() + (NOTICE_STRIP - 8) / 2;
+		graphics.text(font, ellipsis(text, room), textX, textY, Theme.WARN, false);
 		if (mouseX >= place.x0() && mouseX < freshStripTextRight && mouseY >= place.y0() && mouseY < place.y1()) {
 			List<FormattedCharSequence> all = new ArrayList<>();
 			for (Component line : freshLines(freshShown)) all.addAll(font.split(line, 200));
@@ -394,8 +393,9 @@ public final class SkinsScreen extends Screen {
 		Theme.card(graphics, place.x0(), place.y0(), place.x1(), place.y1(), 0xF0302814, Theme.WARN);
 		Icons.draw(graphics, Icon.ERROR, place.x0() + 5, place.y0() + 6, Theme.WARN);
 		int y = place.y0() + 7;
+		int wordsX = place.x0() + 5 + Icons.SIZE + 4;
 		for (FormattedCharSequence line : place.lines()) {
-			graphics.text(font, line, place.x0() + 5 + Icons.SIZE + 4, y, Theme.WARN, false);
+			graphics.text(font, line, wordsX, y, Theme.WARN, false);
 			y += 10;
 		}
 		cutTooltip(graphics, place, mouseX, mouseY);
@@ -510,8 +510,9 @@ public final class SkinsScreen extends Screen {
 			Theme.card(graphics, card.x0(), card.y0(), card.x1(), card.y1(), Theme.CARD, Theme.ACCENT);
 			Icons.draw(graphics, Icon.SITE, card.x0() + 5, card.y0() + 6, Theme.ACCENT);
 			int y = card.y0() + 7;
+			int wordsX = card.x0() + 5 + Icons.SIZE + 4;
 			for (FormattedCharSequence line : card.lines()) {
-				graphics.text(font, line, card.x0() + 5 + Icons.SIZE + 4, y, textColour, false);
+				graphics.text(font, line, wordsX, y, textColour, false);
 				y += 10;
 			}
 			cutTooltip(graphics, card, mouseX, mouseY);
@@ -575,6 +576,10 @@ public final class SkinsScreen extends Screen {
 		return bottomRowY() - GAP;
 	}
 
+	private void openSettings() {
+		minecraft.gui.setScreen(new SettingsScreen(this));
+	}
+
 	@Override
 	protected void init() {
 		dropdowns.clear();
@@ -595,7 +600,7 @@ public final class SkinsScreen extends Screen {
 			this::onClose));
 		right -= ROW + GAP;
 		addRenderableWidget(IconButton.square(right - ROW, topRowY(), ROW, Icon.SETTINGS,
-			Component.translatable("mosaicary.settings.title"), () -> minecraft.gui.setScreen(new SettingsScreen(this))));
+			Component.translatable("mosaicary.settings.title"), this::openSettings));
 		right -= ROW + GAP;
 
 		if (detail()) initDetail(right);
@@ -1053,7 +1058,7 @@ public final class SkinsScreen extends Screen {
 
 	@Override
 	public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
-		if (hideMouse) {
+		if (Theme.hideMouse) {
 			mouseX = -10000;
 			mouseY = -10000;
 		}
@@ -1078,7 +1083,7 @@ public final class SkinsScreen extends Screen {
 		}
 		drawStatus(graphics);
 		super.extractRenderState(graphics, mouseX, mouseY, a);
-		graphics.nextStratum();
+		Theme.nextLayer(graphics);
 		for (Dropdown<?> box : dropdowns) box.extractList(graphics, mouseX, mouseY, width);
 		if (tagPicker != null) tagPicker.extractList(graphics, mouseX, mouseY, width);
 	}
@@ -1182,7 +1187,7 @@ public final class SkinsScreen extends Screen {
 			int x = left + 1 + (grid.cardWidth() - 2 - side) / 2;
 			int y = top + 1 + (grid.pictureHeight() - side) / 2;
 			Identifier moving = card.eyes() && freshReady ? skins.livePicture(card) : null;
-			graphics.blit(RenderPipelines.GUI_TEXTURED, moving != null ? moving : picture.texture(), x, y, 0, 0, side, side, picture.width(), picture.height(),
+			Theme.blit(graphics, moving != null ? moving : picture.texture(), x, y, 0, 0, side, side, picture.width(), picture.height(),
 				picture.width(), picture.height());
 		} else {
 			Icons.draw(graphics, picture.state() == Skins.State.LOADING ? Icon.LOADING : Icon.OWN_SKIN,
@@ -1265,7 +1270,7 @@ public final class SkinsScreen extends Screen {
 			int y = top + 1 + (grid.pictureHeight() - side) / 2;
 			Skins.Look seen = fromSite && freshReady ? skins.look(entry) : null;
 			Identifier moving = seen != null && seen.eyes() ? skins.livePicture(entry) : null;
-			graphics.blit(RenderPipelines.GUI_TEXTURED, moving != null ? moving : picture.texture(), x, y, 0, 0, side, side, picture.width(), picture.height(),
+			Theme.blit(graphics, moving != null ? moving : picture.texture(), x, y, 0, 0, side, side, picture.width(), picture.height(),
 				picture.width(), picture.height());
 		} else {
 			Icons.draw(graphics, picture.state() == Skins.State.LOADING ? Icon.LOADING : Icon.OWN_SKIN,
@@ -1381,7 +1386,7 @@ public final class SkinsScreen extends Screen {
 		Theme.card(graphics, layout.previewX0, layout.previewY0, layout.previewX1, layout.previewY1, 0xFF273A49, Theme.EDGE);
 		Skins.Texture texture = openCard != null ? skins.texture(openCard) : skins.texture(entry);
 		if (texture.ready()) {
-			Model.Simple model = texture.model() == PlayerModelType.SLIM ? slimModel : wideModel;
+			PlayerPose.Figure model = texture.model() == PlayerModelType.SLIM ? slimModel : wideModel;
 			pose(model, (System.nanoTime() - opened) / 1e9f);
 			// The eyes move when the game would move them too: the pack and its mods there and on.
 			if (liveEyesOf != texture) {
@@ -1409,7 +1414,7 @@ public final class SkinsScreen extends Screen {
 			// Tilted about its middle, as the game measures it from the box's top.
 			float pivot = -((boxBottom - boxTop) / scale - FIGURE_MIDDLE);
 			graphics.enableScissor(cardX0, layout.previewY0 + 1, cardX1, layout.previewY1 - 1);
-			graphics.skin(model, moving ? liveEyes.frame() : texture.texture(), scale, rotationX, rotationY, pivot,
+			PlayerPose.draw(graphics, model, moving ? liveEyes.frame() : texture.texture(), scale, rotationX, rotationY, pivot,
 				centre - half, boxTop, centre + half, boxBottom);
 			graphics.disableScissor();
 		} else {
@@ -1438,7 +1443,7 @@ public final class SkinsScreen extends Screen {
 	private static final float FIGURE_MIDDLE = 1.1f;
 
 	/** At rest, the arms swaying a little; walking by the game's formulas when walking is on. */
-	private static void pose(Model.Simple model, float seconds) {
+	private static void pose(PlayerPose.Figure model, float seconds) {
 		PlayerPose.rest(model);
 		if (walking) PlayerPose.walk(model, seconds);
 		else PlayerPose.idle(model, seconds);
@@ -1545,24 +1550,81 @@ public final class SkinsScreen extends Screen {
 
 	// ------------------------------------------------------------------ input
 
+	// Before 1.21.9 the game hands the pointer and the button over as numbers, not as one event.
+	//#if MC>=12111
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+		return clicked(event.x(), event.y(), event.button(), () -> super.mouseClicked(event, doubleClick));
+	}
+
+	@Override
+	public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
+		return dragged(dx, dy) || super.mouseDragged(event, dx, dy);
+	}
+
+	@Override
+	public boolean mouseReleased(MouseButtonEvent event) {
+		released();
+		return super.mouseReleased(event);
+	}
+
+	@Override
+	public boolean charTyped(CharacterEvent event) {
+		if (tagPicker != null && tagPicker.isOpen()) return tagPicker.typed(event.codepoint());
+		return super.charTyped(event);
+	}
+
+	@Override
+	public boolean keyPressed(KeyEvent event) {
+		return pressed(event.key()) || super.keyPressed(event);
+	}
+	//#else
+	//$$ @Override
+	//$$ public boolean mouseClicked(double mouseX, double mouseY, int button) {
+	//$$ 	return clicked(mouseX, mouseY, button, () -> super.mouseClicked(mouseX, mouseY, button));
+	//$$ }
+	//$$
+	//$$ @Override
+	//$$ public boolean mouseDragged(double mouseX, double mouseY, int button, double dx, double dy) {
+	//$$ 	return dragged(dx, dy) || super.mouseDragged(mouseX, mouseY, button, dx, dy);
+	//$$ }
+	//$$
+	//$$ @Override
+	//$$ public boolean mouseReleased(double mouseX, double mouseY, int button) {
+	//$$ 	released();
+	//$$ 	return super.mouseReleased(mouseX, mouseY, button);
+	//$$ }
+	//$$
+	//$$ @Override
+	//$$ public boolean charTyped(char typed, int modifiers) {
+	//$$ 	if (tagPicker != null && tagPicker.isOpen()) return tagPicker.typed(typed);
+	//$$ 	return super.charTyped(typed, modifiers);
+	//$$ }
+	//$$
+	//$$ @Override
+	//$$ public boolean keyPressed(int key, int scanCode, int modifiers) {
+	//$$ 	return pressed(key) || super.keyPressed(key, scanCode, modifiers);
+	//$$ }
+	//#endif
+
+	/** A click; {@code widgets} gives it to the screen's own buttons, after any open list has had it. */
+	private boolean clicked(double x, double y, int button, BooleanSupplier widgets) {
 		for (Dropdown<?> box : dropdowns) {
-			if (box.isOpen() && box.clickList(event.x(), event.y(), width)) return true;
+			if (box.isOpen() && box.clickList(x, y, width)) return true;
 		}
-		if (tagPicker != null && tagPicker.isOpen() && tagPicker.clickList(event.x(), event.y(), width)) return true;
-		if (super.mouseClicked(event, doubleClick)) return true;
-		if (event.button() == InputConstants.MOUSE_BUTTON_RIGHT && detail()) {
+		if (tagPicker != null && tagPicker.isOpen() && tagPicker.clickList(x, y, width)) return true;
+		if (widgets.getAsBoolean()) return true;
+		if (button == InputConstants.MOUSE_BUTTON_RIGHT && detail()) {
 			Detail layout = detailLayout();
-			if (event.x() >= layout.previewX0 && event.x() < layout.previewX1 && event.y() >= layout.previewY0 && event.y() < layout.previewY1) {
+			if (x >= layout.previewX0 && x < layout.previewX1 && y >= layout.previewY0 && y < layout.previewY1) {
 				panning = true;
 				return true;
 			}
 		}
-		if (event.button() != InputConstants.MOUSE_BUTTON_LEFT) return false;
+		if (button != InputConstants.MOUSE_BUTTON_LEFT) return false;
 
 		if (!detail()) {
-			int index = cardAt(event.x(), event.y());
+			int index = cardAt(x, y);
 			if (index >= 0) {
 				if (tab == Tab.CATALOGUE) openCard(skins.shelf(query).cards.get(index));
 				else openEntry(mine().get(index));
@@ -1574,7 +1636,7 @@ public final class SkinsScreen extends Screen {
 					skins.refresh(query);
 					return true;
 				}
-				if (shelf.failure != null && event.y() >= tailTop && event.y() < tailTop + ROW) {
+				if (shelf.failure != null && y >= tailTop && y < tailTop + ROW) {
 					skins.retry(query);
 					return true;
 				}
@@ -1583,20 +1645,20 @@ public final class SkinsScreen extends Screen {
 		}
 
 		Detail layout = detailLayout();
-		if (openCard != null && !openCard.creditUrl().isEmpty() && event.y() >= creditRowY && event.y() < creditRowY + Icons.SIZE
-				&& event.x() >= layout.infoX0 && event.x() < layout.infoX1) {
+		if (openCard != null && !openCard.creditUrl().isEmpty() && y >= creditRowY && y < creditRowY + Icons.SIZE
+				&& x >= layout.infoX0 && x < layout.infoX1) {
 			openUri(openCard.creditUrl());
 			return true;
 		}
-		if (event.x() >= layout.previewX0 && event.x() < layout.previewX1 && event.y() >= layout.previewY0 && event.y() < layout.previewY1) {
+		if (x >= layout.previewX0 && x < layout.previewX1 && y >= layout.previewY0 && y < layout.previewY1) {
 			turning = true;
 			return true;
 		}
 		return false;
 	}
 
-	@Override
-	public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
+	/** A drag that turns or moves the figure; false for one the screen's own widgets take. */
+	private boolean dragged(double dx, double dy) {
 		if (panning) {
 			// As far as keeps the figure's middle on the card.
 			Detail layout = detailLayout();
@@ -1611,14 +1673,12 @@ public final class SkinsScreen extends Screen {
 			rotationX = Math.max(-50, Math.min(50, rotationX - (float) dy * 2.5f));
 			return true;
 		}
-		return super.mouseDragged(event, dx, dy);
+		return false;
 	}
 
-	@Override
-	public boolean mouseReleased(MouseButtonEvent event) {
+	private void released() {
 		turning = false;
 		panning = false;
-		return super.mouseReleased(event);
 	}
 
 	@Override
@@ -1639,16 +1699,10 @@ public final class SkinsScreen extends Screen {
 		return super.mouseScrolled(x, y, scrollX, scrollY);
 	}
 
-	@Override
-	public boolean charTyped(CharacterEvent event) {
-		if (tagPicker != null && tagPicker.isOpen()) return tagPicker.typed(event.codepoint());
-		return super.charTyped(event);
-	}
-
-	@Override
-	public boolean keyPressed(KeyEvent event) {
-		if (tagPicker != null && tagPicker.isOpen() && tagPicker.key(event)) return true;
-		if (event.key() == InputConstants.KEY_ESCAPE) {
+	/** A key the screen takes itself (by its key code): Escape closes an open list or the skin. */
+	private boolean pressed(int key) {
+		if (tagPicker != null && tagPicker.isOpen() && tagPicker.key(key)) return true;
+		if (key == InputConstants.KEY_ESCAPE) {
 			for (Dropdown<?> box : dropdowns) {
 				if (box.isOpen()) {
 					box.close();
@@ -1660,7 +1714,7 @@ public final class SkinsScreen extends Screen {
 				return true;
 			}
 		}
-		return super.keyPressed(event);
+		return false;
 	}
 
 	@Override

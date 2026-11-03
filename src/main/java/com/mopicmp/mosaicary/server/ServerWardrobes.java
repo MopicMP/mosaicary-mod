@@ -9,9 +9,11 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -75,6 +77,8 @@ public final class ServerWardrobes {
 
 	private static final Map<UUID, Long> lastWardrobe = new HashMap<>();
 	private static final Map<UUID, Long> lastSkin = new HashMap<>();
+	/** The players told that this server keeps wardrobes, each once while they are on. */
+	private static final Set<UUID> greeted = new HashSet<>();
 	private static ExecutorService work;
 	private static HttpClient http;
 
@@ -84,18 +88,23 @@ public final class ServerWardrobes {
 		Platform.onServerStarted(server -> start());
 		Platform.onServerStopping(server -> stop());
 		Platform.onPlayerJoin(player -> {
-			if (Platform.canSend(player, MosaicaryPayloads.Hello.TYPE)) {
-				Platform.send(player, new MosaicaryPayloads.Hello(MosaicaryPayloads.VERSION));
-			}
+			if (Platform.canSend(player, MosaicaryPayloads.Hello.TYPE)) greet(player);
 		});
+		// A client that names the mod's channel only after joining is greeted then.
+		Platform.onCanSendLater(MosaicaryPayloads.Hello.TYPE, ServerWardrobes::greet);
 		Platform.onPlayerLeave(player -> {
 			lastWardrobe.remove(player.getUUID());
 			lastSkin.remove(player.getUUID());
+			greeted.remove(player.getUUID());
 		});
 		Platform.onServerReceive(MosaicaryPayloads.WardrobeState.TYPE,
 			(player, payload) -> wardrobe(player.level().getServer(), player, payload.json()));
 		Platform.onServerReceive(MosaicaryPayloads.SkinChanged.TYPE,
 			(player, payload) -> skinChanged(player.level().getServer(), player, payload.account(), payload.texture()));
+	}
+
+	private static void greet(ServerPlayer player) {
+		if (greeted.add(player.getUUID())) Platform.send(player, new MosaicaryPayloads.Hello(MosaicaryPayloads.VERSION));
 	}
 
 	private static synchronized void start() {
@@ -199,16 +208,25 @@ public final class ServerWardrobes {
 	 */
 	private static void showAgain(MinecraftServer server, ServerPlayer player, Property textures) {
 		GameProfile old = player.getGameProfile();
+		// A profile and its properties cannot be changed in place from 1.21.11 on; before, they can.
+		//#if MC>=12111
 		Multimap<String, Property> properties = LinkedHashMultimap.create(old.properties());
 		properties.removeAll("textures");
 		properties.put("textures", textures);
-		((ProfileHolder) player).mosaicary$setGameProfile(new GameProfile(old.id(), old.name(), new PropertyMap(properties)));
+		GameProfile now = new GameProfile(old.id(), old.name(), new PropertyMap(properties));
+		//#else
+		//$$ GameProfile now = new GameProfile(old.getId(), old.getName());
+		//$$ now.getProperties().putAll(old.getProperties());
+		//$$ now.getProperties().removeAll("textures");
+		//$$ now.getProperties().put("textures", textures);
+		//#endif
+		((ProfileHolder) player).mosaicary$setGameProfile(now);
 
 		server.getPlayerList().broadcastAll(new ClientboundPlayerInfoRemovePacket(List.of(player.getUUID())));
 		server.getPlayerList().broadcastAll(ClientboundPlayerInfoUpdatePacket.createPlayerInitializing(List.of(player)));
 		Object tracked = ((TrackedEntities) player.level().getChunkSource().chunkMap).mosaicary$entities().get(player.getId());
 		if (tracked instanceof Retrack watched) watched.mosaicary$showAgain();
-		Mosaicary.LOGGER.info("Showing {}'s new skin to everyone", old.name());
+		Mosaicary.LOGGER.info("Showing {}'s new skin to everyone", player.getName().getString());
 	}
 
 	/** Implemented by the player mixin: replaces the profile the player was made with. */

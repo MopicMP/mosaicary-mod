@@ -1,0 +1,31 @@
+modLoader = "javafml"
+loaderVersion = "[@FORGE_MIN@,)"
+license = "All-Rights-Reserved"
+issueTrackerURL = "https://github.com/MopicMP/mosaicary-mod/issues"
+
+[[mods]]
+modId = "mosaicary"
+version = "${version}"
+displayName = "Mosaicary"
+displayURL = "https://mosaicary.com"
+logoFile = "assets/mosaicary/icon.png"
+authors = "MopicMP"
+description = '''
+A skin wardrobe in game: browse the skins of mosaicary.com, see them on the player model, put them on your account and keep your own in My skins, kept in step with mosaicary.com and with servers that have the mod.
+'''
+# A server and a client each work without the mod on the other side, so the server list shows no mismatch.
+displayTest = "IGNORE_ALL_VERSION"
+
+[[dependencies.mosaicary]]
+modId = "forge"
+mandatory = true
+versionRange = "[@FORGE_MIN@,)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.mosaicary]]
+modId = "minecraft"
+mandatory = true
+versionRange = "[${mcVersionStr},@MC_NEXT@)"
+ordering = "NONE"
+side = "BOTH"

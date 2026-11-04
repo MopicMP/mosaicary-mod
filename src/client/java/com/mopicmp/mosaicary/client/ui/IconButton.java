@@ -7,7 +7,9 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Tooltip;
+//#if MC>=11700
 import net.minecraft.client.gui.narration.NarrationElementOutput;
+//#endif
 //#if MC>=12111
 import net.minecraft.client.input.MouseButtonEvent;
 //#endif
@@ -19,7 +21,12 @@ import net.minecraft.network.chat.Component;
  * The explanation of what it does goes in the tooltip, never under the button. A
  * disabled button keeps its tooltip, so it can say why it is disabled.
  */
+// Before 1.19.3 a widget has no getters for its place, no isHovered and no tooltip (PlacedWidget).
+//#if MC>=11903
 public class IconButton extends AbstractWidget {
+//#else
+//$$ public class IconButton extends com.mopicmp.mosaicary.client.platform.PlacedWidget {
+//#endif
 
 	private Supplier<Icon> icon;
 	private Component label;
@@ -84,7 +91,7 @@ public class IconButton extends AbstractWidget {
 	}
 
 	@Override
-	protected void extractWidgetRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
+	public void extractWidgetRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
 		boolean on = active;
 		boolean hovered = on && isHovered();
 		int fill = primary ? (hovered ? Theme.darker(accent, 0.85f) : Theme.ACCENT_DARK) : hovered ? Theme.CARD_HOVER : Theme.CARD;
@@ -107,8 +114,21 @@ public class IconButton extends AbstractWidget {
 		}
 	}
 
+	//#if MC>=11700
 	@Override
-	protected void updateWidgetNarration(NarrationElementOutput output) {
+	public void updateWidgetNarration(NarrationElementOutput output) {
 		defaultButtonNarrationText(output);
 	}
+	//#endif
+
+	//#if MC<12002
+	//$$ /** The widget's right and bottom edges, which 1.20.1 does not give, only its place and size. */
+	//$$ private int getRight() {
+	//$$ 	return getX() + getWidth();
+	//$$ }
+	//$$
+	//$$ private int getBottom() {
+	//$$ 	return getY() + getHeight();
+	//$$ }
+	//#endif
 }

@@ -14,8 +14,10 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Tooltip;
+//#if MC>=11700
 import net.minecraft.client.gui.narration.NarratedElementType;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
+//#endif
 //#if MC>=12111
 import net.minecraft.client.input.MouseButtonEvent;
 //#endif
@@ -33,7 +35,12 @@ import net.minecraft.network.chat.Component;
  * As with {@link Dropdown}, the screen draws the open list last and offers it clicks,
  * keys and the wheel first.
  */
+// Before 1.19.3 a widget has no getters for its place, no isHovered and no tooltip (PlacedWidget).
+//#if MC>=11903
 public final class TagPicker extends AbstractWidget {
+//#else
+//$$ public final class TagPicker extends com.mopicmp.mosaicary.client.platform.PlacedWidget {
+//#endif
 
 	private static final int ROW = 14;
 	private static final int WIDTH = 190;
@@ -100,7 +107,7 @@ public final class TagPicker extends AbstractWidget {
 	}
 
 	@Override
-	protected void extractWidgetRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
+	public void extractWidgetRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
 		boolean hovered = isHovered() || open;
 		boolean lit = !ticked.isEmpty();
 		Theme.card(graphics, getX(), getY(), getRight(), getBottom(), hovered ? Theme.CARD_HOVER : Theme.CARD,
@@ -299,8 +306,27 @@ public final class TagPicker extends AbstractWidget {
 		return true;
 	}
 
+	//#if MC>=11700
 	@Override
-	protected void updateWidgetNarration(NarrationElementOutput output) {
+	public void updateWidgetNarration(NarrationElementOutput output) {
 		output.add(NarratedElementType.TITLE, Component.translatable("mosaicary.skins.filter.tags").append(": ").append(label()));
 	}
+	//#else
+	//$$ // Before 1.17 a widget is narrated by one message, its label unless it says otherwise.
+	//$$ @Override
+	//$$ protected net.minecraft.network.chat.MutableComponent createNarrationMessage() {
+	//$$ 	return new net.minecraft.network.chat.TranslatableComponent("mosaicary.skins.filter.tags").append(": ").append(label());
+	//$$ }
+	//#endif
+
+	//#if MC<12002
+	//$$ /** The widget's right and bottom edges, which 1.20.1 does not give, only its place and size. */
+	//$$ private int getRight() {
+	//$$ 	return getX() + getWidth();
+	//$$ }
+	//$$
+	//$$ private int getBottom() {
+	//$$ 	return getY() + getHeight();
+	//$$ }
+	//#endif
 }

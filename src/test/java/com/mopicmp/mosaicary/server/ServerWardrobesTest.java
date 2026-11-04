@@ -26,8 +26,14 @@ class ServerWardrobesTest {
 	@Test
 	void theSignedPropertyIsTakenOnceItCarriesTheNewSkin() {
 		Property property = ServerWardrobes.texturesWith(profile(HASH, true), HASH);
+		// Before 1.20.2 a property is a class with getters.
+		//#if MC>=12002
 		assertEquals("textures", property.name());
 		assertEquals("c2lnbmVk", property.signature());
+		//#else
+		//$$ assertEquals("textures", property.getName());
+		//$$ assertEquals("c2lnbmVk", property.getSignature());
+		//#endif
 	}
 
 	@Test

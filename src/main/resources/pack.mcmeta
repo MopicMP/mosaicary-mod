@@ -1,0 +1,6 @@
+{
+	"pack": {
+		"description": "Mosaicary resources",
+		"pack_format": @PACK_FORMAT@
+	}
+}

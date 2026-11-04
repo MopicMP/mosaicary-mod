@@ -4,10 +4,8 @@ import java.io.IOException;
 import java.net.ConnectException;
 import java.net.URI;
 import java.net.http.HttpClient;
-import java.net.http.HttpConnectTimeoutException;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
@@ -109,7 +107,7 @@ public final class SiteClient implements AutoCloseable {
 		this.http = HttpClient.newBuilder()
 			.connectTimeout(Duration.ofSeconds(10))
 			.followRedirects(HttpClient.Redirect.NORMAL)
-			.executor(work)
+			.executor(com.mopicmp.mosaicary.platform.Platform.requests(work, "Mosaicary site"))
 			.build();
 	}
 
@@ -437,6 +435,15 @@ public final class SiteClient implements AutoCloseable {
 
 	/** A status and a body, whatever the status: for callers that read refusals themselves. */
 	public record Answer(int status, String body) {
+		/**
+		 * The body, written out: the preprocessor cannot tell the type of a record's component it is not
+		 * given, and a pattern of ClientPatterns would miss a call reading it (docs/mod-versions-plan.md).
+		 */
+		@Override
+		public String body() {
+			return body;
+		}
+
 		public boolean ok() {
 			return status >= 200 && status < 300;
 		}
@@ -521,8 +528,9 @@ public final class SiteClient implements AutoCloseable {
 			cause = cause.getCause();
 		}
 		if (cause instanceof SiteException known) return known;
-		if (cause instanceof HttpConnectTimeoutException || cause instanceof HttpTimeoutException
-				|| cause instanceof ConnectException || cause instanceof java.nio.channels.UnresolvedAddressException
+		// A timeout is an IOException too (HttpTimeoutException), and is not named apart: Java 8 has no such
+		// class, and the jar for it (build.gradle.kts, JvmDowngrader) has no copy of it either.
+		if (cause instanceof ConnectException || cause instanceof java.nio.channels.UnresolvedAddressException
 				|| cause instanceof java.net.UnknownHostException || cause instanceof IOException) {
 			return new SiteException(Failure.OFFLINE, 0, String.valueOf(cause.getMessage()), cause);
 		}
@@ -539,6 +547,10 @@ public final class SiteClient implements AutoCloseable {
 	@Override
 	public void close() {
 		work.shutdownNow();
+		// An HttpClient can be shut down itself from Java 21, the game's Java since 1.20.5; before,
+		// it stops once its executor has and nothing holds it.
+		//#if MC>=12005
 		http.shutdownNow();
+		//#endif
 	}
 }

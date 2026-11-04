@@ -255,8 +255,13 @@ public final class SkinFileScreen extends Screen {
 	}
 
 	@Override
+	//#if MC>=12002
 	public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
 		super.extractBackground(graphics, mouseX, mouseY, a);
+	//#else
+	//$$ public void renderBackground(GuiGraphics graphics) {
+	//$$ 	super.renderBackground(graphics);
+	//#endif
 		graphics.fill(0, 0, width, height, Theme.SCREEN);
 	}
 
@@ -298,7 +303,10 @@ public final class SkinFileScreen extends Screen {
 		int visible = grid.y1() - grid.y0();
 		scroll = Math.max(0, Math.min(Math.max(0, contentHeight(grid) - visible), scroll));
 		int hovered = itemAt(mouseX, mouseY);
-		graphics.enableScissor(grid.x0(), grid.y0(), grid.x1(), grid.y1());
+		// Read into locals: the preprocessor cannot tell the type of a record's component, and the patterns
+		// that rewrite these calls before 1.20 miss a call reading one (ClientPatterns).
+		int gridX0 = grid.x0(), gridY0 = grid.y0(), gridX1 = grid.x1(), gridY1 = grid.y1();
+		graphics.enableScissor(gridX0, gridY0, gridX1, gridY1);
 		for (int i = 0; i < items.size(); i++) {
 			int[] at = cardPlace(grid, i);
 			if (at[1] > grid.y1() || at[1] + grid.cardHeight() < grid.y0()) continue;
@@ -309,12 +317,14 @@ public final class SkinFileScreen extends Screen {
 		if (content > visible) {
 			int barHeight = Math.max(16, visible * visible / content);
 			int barTop = grid.y0() + (int) ((visible - barHeight) * scroll / (content - visible));
-			graphics.fill(grid.x1() - 3, barTop, grid.x1(), barTop + barHeight, Theme.EDGE);
+			graphics.fill(gridX1 - 3, barTop, gridX1, barTop + barHeight, Theme.EDGE);
 		}
 		if (hovered >= 0) {
 			Item item = items.get(hovered);
-			Component tip = item.isFolder() || item.skin() ? Component.literal(item.name())
-				: Component.translatable("mosaicary.skins.mine.refused.size", item.name());
+			// A record's component through a local, as the patterns before 1.19 miss a call reading one (ClientPatterns).
+			String itemName = item.name();
+			Component tip = item.isFolder() || item.skin() ? Component.literal(itemName)
+				: Component.translatable("mosaicary.skins.mine.refused.size", itemName);
 			Theme.tooltip(graphics, font, tip, mouseX, mouseY);
 		}
 	}
@@ -422,7 +432,11 @@ public final class SkinFileScreen extends Screen {
 	}
 
 	@Override
+	//#if MC>=12002
 	public boolean mouseScrolled(double x, double y, double scrollX, double scrollY) {
+	//#else
+	//$$ public boolean mouseScrolled(double x, double y, double scrollY) {
+	//#endif
 		scroll -= scrollY * 24;
 		return true;
 	}
@@ -440,4 +454,11 @@ public final class SkinFileScreen extends Screen {
 	public void onClose() {
 		minecraft.gui.setScreen(parent);
 	}
+
+	//#if MC<11900
+	//$$ /** Lays the screen out anew, as rebuildWidgets does from 1.19 on. */
+	//$$ private void rebuildWidgets() {
+	//$$ 	init(minecraft, width, height);
+	//$$ }
+	//#endif
 }

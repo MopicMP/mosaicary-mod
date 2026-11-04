@@ -37,6 +37,6 @@
 		"fabricloader": ">=0.19.5",
 		"minecraft": ">=${mcVersionStr} <@MC_NEXT@",
 		"java": ">=@JAVA@",
-		"fabric-api": "*"
+		"@FABRIC_API@": "*"
 	}
 }

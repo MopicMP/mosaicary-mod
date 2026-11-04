@@ -497,7 +497,13 @@ public final class Catalogue {
 			Component.literal(command).withStyle(style -> style.withColor(ChatFormatting.AQUA).withUnderlined(true)
 				.withClickEvent(new ClickEvent.SuggestCommand(command))
 				.withHoverEvent(new HoverEvent.ShowText(Component.translatable("mosaicary.build.worldedit.hover")))));
+		// The chat's listener moved to Minecraft.gui with 26.1. Not a pattern of ClientPatterns: there is
+		// none before 1.19.1, and a pattern has to be there on every version.
+		//#if MC>=260100
 		minecraft.gui.chatListener().handleSystemMessage(line, false);
+		//#else
+		//$$ minecraft.getChatListener().handleSystemMessage(line, false);
+		//#endif
 	}
 }
 //#endif

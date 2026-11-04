@@ -190,7 +190,12 @@ public final class Builds {
 	//$$ }
 	//$$
 	//$$ private static CompoundTag gzipRoot(byte[] data) throws IOException {
+	//#if MC>=12002
 	//$$ 	return NbtIo.readCompressed(new ByteArrayInputStream(data), NbtAccounter.create(MOST_NBT));
+	//#else
+	//$$ 	return NbtIo.read(new java.io.DataInputStream(new java.util.zip.GZIPInputStream(new ByteArrayInputStream(data))),
+	//$$ 		new NbtAccounter(MOST_NBT));
+	//#endif
 	//$$ }
 	//#endif
 

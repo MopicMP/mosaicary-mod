@@ -1,9 +1,12 @@
 package com.mopicmp.mosaicary.client.ui;
 
+import java.util.List;
+
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
+import net.minecraft.util.FormattedCharSequence;
 //#if MC>=12111
 import net.minecraft.client.renderer.RenderPipelines;
 //#endif
@@ -22,7 +25,24 @@ public final class Theme {
 
 	/** Words on the pointer, broken into lines rather than running across the screen. */
 	public static void tooltip(GuiGraphicsExtractor graphics, Font font, Component words, int x, int y) {
-		graphics.setTooltipForNextFrame(font, font.split(words, TOOLTIP_WIDTH), x, y);
+		tooltip(graphics, font, font.split(words, TOOLTIP_WIDTH), x, y);
+	}
+
+	/**
+	 * Lines on the pointer, over the whole screen once it is drawn. From 1.21.6 on the game puts every
+	 * tooltip there itself. Before, drawing one draws it at once: inside the box cut out at the time (a
+	 * shelf of cards, which cut its top off) and under all that comes after it (the next cards), so it is
+	 * handed to the screen for afterwards instead.
+	 */
+	public static void tooltip(GuiGraphicsExtractor graphics, Font font, List<FormattedCharSequence> lines, int x, int y) {
+		//#if MC>=12111
+		graphics.setTooltipForNextFrame(font, lines, x, y);
+		//#elseif MC>=11904
+		//$$ net.minecraft.client.gui.screens.Screen screen = net.minecraft.client.Minecraft.getInstance().screen;
+		//$$ if (screen != null) screen.setTooltipForNextRenderPass(lines);
+		//#else
+		//$$ com.mopicmp.mosaicary.client.platform.Tooltip.hover(lines);
+		//#endif
 	}
 
 	public static final int SCREEN = 0xE60E1117;

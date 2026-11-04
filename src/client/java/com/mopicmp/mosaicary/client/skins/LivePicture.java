@@ -49,7 +49,11 @@ final class LivePicture implements AutoCloseable {
 	static List<Decoded> decode(byte[] file) {
 		List<Decoded> out = new ArrayList<>();
 		try {
-			for (Apng.Frame frame : Apng.frames(file)) out.add(new Decoded(frame, NativeImage.read(frame.png())));
+			for (Apng.Frame frame : Apng.frames(file)) {
+				// Through a local, as the pattern for 1.19.2 misses a call reading a record's component (ClientPatterns).
+				byte[] png = frame.png();
+				out.add(new Decoded(frame, NativeImage.read(png)));
+			}
 		} catch (IOException | RuntimeException unreadable) {
 			for (Decoded one : out) one.image().close();
 			return null;

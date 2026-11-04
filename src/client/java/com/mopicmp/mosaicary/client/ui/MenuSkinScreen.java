@@ -157,8 +157,13 @@ public final class MenuSkinScreen extends Screen {
 	}
 
 	@Override
+	//#if MC>=12002
 	public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
 		super.extractBackground(graphics, mouseX, mouseY, a);
+	//#else
+	//$$ public void renderBackground(GuiGraphics graphics) {
+	//$$ 	super.renderBackground(graphics);
+	//#endif
 		graphics.fill(0, 0, width, height, Theme.SCREEN);
 	}
 
@@ -234,4 +239,11 @@ public final class MenuSkinScreen extends Screen {
 	public void onClose() {
 		minecraft.gui.setScreen(parent);
 	}
+
+	//#if MC<11900
+	//$$ /** Lays the screen out anew, as rebuildWidgets does from 1.19 on. */
+	//$$ private void rebuildWidgets() {
+	//$$ 	init(minecraft, width, height);
+	//$$ }
+	//#endif
 }

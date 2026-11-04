@@ -2,7 +2,7 @@
 
 A skin wardrobe for Minecraft. Browse the skin catalogue of [mosaicary.com](https://mosaicary.com) in the game, see each skin on the player model, and wear it in one click.
 
-For **Fabric** and **NeoForge**, Minecraft 26.3, 1.21.11 and 1.21.1. [Русский](#русский)
+For Minecraft 26.3, 1.21.11 and 1.21.1 on **Fabric** and **NeoForge**, and 1.20.1, 1.19.2 and 1.18.2 on **Fabric** and **Forge**. [Русский](#русский)
 
 **Download:** [CurseForge](https://www.curseforge.com/minecraft/mc-mods/mosaicary)
 
@@ -30,14 +30,15 @@ For **Fabric** and **NeoForge**, Minecraft 26.3, 1.21.11 and 1.21.1. [Русск
 
 ## Requirements
 
-- Minecraft 26.3, 1.21.11 or 1.21.1
-- Java 25 for 26.3, Java 21 for 1.21.11 and 1.21.1
+- Minecraft 26.3, 1.21.11, 1.21.1, 1.20.1, 1.19.2 or 1.18.2
+- Java 25 for 26.3, Java 21 for 1.21.11 and 1.21.1, Java 17 for 1.20.1, 1.19.2 and 1.18.2
 - On Fabric: Fabric Loader 0.19.5 or newer and Fabric API
-- On NeoForge: NeoForge for your version of the game
+- On NeoForge (26.3, 1.21.11, 1.21.1): NeoForge for your version of the game
+- On Forge (1.20.1, 1.19.2, 1.18.2): Forge for your version of the game
 
 Each version of the game and each loader has its own file; take the one for yours.
 
-Optional: on Fabric, [Mod Menu](https://modrinth.com/mod/modmenu), for the settings button in its list (on NeoForge the settings open from the Config button in the mod list), and the three projects under Live eyes above. The mod works without them, in single player and on any server. The server does not need it.
+Optional: on Fabric, [Mod Menu](https://modrinth.com/mod/modmenu), for the settings button in its list (on NeoForge and Forge the settings open from the Config button in the mod list), and the three projects under Live eyes above. The mod works without them, in single player and on any server. The server does not need it.
 
 The mod's interface is translated into English, Russian, German, Spanish, French, Italian, Japanese, Korean, Dutch, Polish, Brazilian Portuguese, Turkish, Ukrainian and Simplified Chinese.
 
@@ -47,20 +48,22 @@ The catalogue comes from the site. With sharing on, which the mod asks about on 
 
 ## Building from source
 
-You need JDK 25 and JDK 21 (for 1.21.11 and 1.21.1); Gradle finds them by itself once they are installed.
+You need JDK 25, JDK 21 (for 1.21.11 and 1.21.1) and JDK 17 (for 1.20.1 and older); Gradle finds them by itself once they are installed.
 
 ```
 ./gradlew build
 ```
 
-The jars land in `versions/<game version>-<loader>/build/libs/`, for example `versions/1.21.1-neoforge/build/libs/`. All of them are built from the one source in `src/`: lines marked `//#if FABRIC`, `//#if NEOFORGE` or `//#if MC>=…` are kept only for that loader or those versions.
+The jars land in `versions/<game version>-<loader>/build/libs/`, for example `versions/1.20.1-forge/build/libs/`. All of them are built from the one source in `src/`: lines marked `//#if FABRIC`, `//#if NEOFORGE`, `//#if FORGE` or `//#if MC>=…` are kept only for that loader or those versions.
+
+The source also builds 1.16.5 for Fabric and Forge, which is not released yet. That game runs on Java 8: the mod is compiled with JDK 17 and its jar is then brought down to Java 8 by [JvmDowngrader](https://github.com/unimined/JvmDowngrader), which the build fetches by itself.
 
 ```
 ./gradlew test
 ./gradlew :26.3-fabric:runClientGameTest
 ```
 
-The first runs the tests that need no game. The second starts the game and drives it with real input, and it needs a connection to mosaicary.com for the catalogue. It runs on 26.3 and 1.21.11; Fabric API has no such tests for 1.21.1.
+The first runs the tests that need no game. The second starts the game and drives it with real input, and it needs a connection to mosaicary.com for the catalogue. It runs on 26.3 and 1.21.11; for the older versions Fabric API has no such tests.
 
 The source also holds parts this release keeps hidden: worn 3D models and a quick ring. They may change or go away.
 
@@ -78,7 +81,7 @@ Not an official Minecraft product. Not approved by or associated with Mojang or 
 
 Гардероб скинов для Minecraft. Каталог скинов с [mosaicary.com](https://mosaicary.com) прямо в игре: посмотреть скин на модели игрока и надеть его одним нажатием.
 
-Для **Fabric** и **NeoForge**, Minecraft 26.3, 1.21.11 и 1.21.1.
+Для Minecraft 26.3, 1.21.11 и 1.21.1 на **Fabric** и **NeoForge** и для 1.20.1, 1.19.2 и 1.18.2 на **Fabric** и **Forge**.
 
 **Скачать:** [CurseForge](https://www.curseforge.com/minecraft/mc-mods/mosaicary)
 
@@ -98,14 +101,15 @@ Not an official Minecraft product. Not approved by or associated with Mojang or 
 
 ## Что нужно
 
-- Minecraft 26.3, 1.21.11 или 1.21.1
-- Java 25 для 26.3, Java 21 для 1.21.11 и 1.21.1
+- Minecraft 26.3, 1.21.11, 1.21.1, 1.20.1, 1.19.2 или 1.18.2
+- Java 25 для 26.3, Java 21 для 1.21.11 и 1.21.1, Java 17 для 1.20.1, 1.19.2 и 1.18.2
 - На Fabric: Fabric Loader 0.19.5 или новее и Fabric API
-- На NeoForge: NeoForge для вашей версии игры
+- На NeoForge (26.3, 1.21.11, 1.21.1): NeoForge для вашей версии игры
+- На Forge (1.20.1, 1.19.2, 1.18.2): Forge для вашей версии игры
 
 У каждой версии игры и каждого загрузчика свой файл, берите тот, что для вашего.
 
-Необязательно: на Fabric — [Mod Menu](https://modrinth.com/mod/modmenu), чтобы открывать настройки из его списка (на NeoForge они открываются кнопкой Config в списке модов), и три проекта из пункта про живые глаза. Мод работает и без них, в одиночной игре и на любом сервере. Серверу мод не нужен.
+Необязательно: на Fabric — [Mod Menu](https://modrinth.com/mod/modmenu), чтобы открывать настройки из его списка (на NeoForge и Forge они открываются кнопкой Config в списке модов), и три проекта из пункта про живые глаза. Мод работает и без них, в одиночной игре и на любом сервере. Серверу мод не нужен.
 
 Интерфейс мода переведён на английский, русский, немецкий, испанский, французский, итальянский, японский, корейский, нидерландский, польский, бразильский португальский, турецкий, украинский и упрощённый китайский.
 
@@ -115,13 +119,15 @@ Not an official Minecraft product. Not approved by or associated with Mojang or 
 
 ## Сборка
 
-Нужны JDK 25 и JDK 21 (для 1.21.11 и 1.21.1); Gradle находит их сам, когда они установлены.
+Нужны JDK 25, JDK 21 (для 1.21.11 и 1.21.1) и JDK 17 (для 1.20.1 и старше); Gradle находит их сам, когда они установлены.
 
 ```
 ./gradlew build
 ```
 
-Готовые файлы появятся в `versions/<версия игры>-<загрузчик>/build/libs/`, например `versions/1.21.1-neoforge/build/libs/`. Все собираются из одного кода в `src/`: строки с пометкой `//#if FABRIC`, `//#if NEOFORGE` или `//#if MC>=…` остаются только для своего загрузчика или своих версий.
+Готовые файлы появятся в `versions/<версия игры>-<загрузчик>/build/libs/`, например `versions/1.20.1-forge/build/libs/`. Все собираются из одного кода в `src/`: строки с пометкой `//#if FABRIC`, `//#if NEOFORGE`, `//#if FORGE` или `//#if MC>=…` остаются только для своего загрузчика или своих версий.
+
+Из того же кода собирается и 1.16.5 для Fabric и Forge, она ещё не выпущена. Эта версия игры работает на Java 8: мод компилируется JDK 17, а затем его jar переводится на Java 8 с помощью [JvmDowngrader](https://github.com/unimined/JvmDowngrader), сборка скачивает его сама.
 
 ## Лицензия
 

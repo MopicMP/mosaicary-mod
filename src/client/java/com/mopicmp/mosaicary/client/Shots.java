@@ -28,7 +28,9 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.components.AbstractWidget;
+//#if MC>=12000
 import net.minecraft.client.gui.screens.AccessibilityOnboardingScreen;
+//#endif
 import net.minecraft.client.gui.screens.ConnectScreen;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.Screen;
@@ -37,7 +39,9 @@ import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.input.KeyEvent;
 //#endif
 import net.minecraft.client.multiplayer.ServerData;
+//#if MC>=11700
 import net.minecraft.client.multiplayer.resolver.ServerAddress;
+//#endif
 
 /**
  * A development-only run that photographs the catalogue and quits.
@@ -57,7 +61,11 @@ import net.minecraft.client.multiplayer.resolver.ServerAddress;
  * figure beside it as {@code title-<scale>.png}, then the wardrobe opened from it once its
  * first shelf of cards has come, as {@code wardrobe-<scale>.png}; the first card opened
  * ({@code wardrobe-card-<scale>.png}), the My skins tab ({@code wardrobe-mine-<scale>.png}) and the
- * settings as the loader's list of mods opens them ({@code settings-<scale>.png}).
+ * settings as the loader's list of mods opens them ({@code settings-<scale>.png}). With
+ * {@code mosaicary.shotsTurns} (such as {@code 30,90,150}) the opened card's figure is also taken
+ * turned by each of those degrees ({@code wardrobe-card-<scale>-turn<degrees>.png}): its lighting
+ * changes as it turns. A tilt can follow a turn after an {@code @} ({@code 0@-50}, the wardrobe's
+ * own is -5), and the picture is then {@code ...-turn<degrees>-tilt<degrees>.png}.
  *
  * With {@code mosaicary.shotsServer} ({@code host:port}) it goes through the wardrobe on a server
  * instead, writing each step to the log as {@code Server run: ...}: it joins, waits for the
@@ -75,7 +83,7 @@ import net.minecraft.client.multiplayer.resolver.ServerAddress;
  */
 final class Shots {
 
-	private enum Step { WAIT_TITLE, SHOOT_TITLE, WAIT_WARDROBE, CARD, SHOOT_CARD, SHOOT_MINE, SHOOT_SETTINGS, JOIN, WAIT_JOIN, WAIT_GREETING, WAIT_KEY, PAUSE,
+	private enum Step { WAIT_TITLE, SHOOT_TITLE, WAIT_WARDROBE, CARD, SHOOT_CARD, SHOOT_TURN, SHOOT_MINE, SHOOT_SETTINGS, JOIN, WAIT_JOIN, WAIT_GREETING, WAIT_KEY, PAUSE,
 		WAIT_SERVER_WARDROBE, WAIT_SENT, SCALE, WAIT_LIST, SHOOT_GRID, NEXT, OPEN_MODEL, WAIT_MODEL, SHOOT_MODEL, NEXT_FRAME, SHOOT_FRAME, QUIT, DONE }
 
 	private static final int SETTLE_TICKS = 20;
@@ -84,6 +92,7 @@ final class Shots {
 	private final Path folder;
 	private final MosaicaryClient client;
 	private final List<Integer> scales = new ArrayList<>();
+	private final List<int[]> turns = new ArrayList<>();
 	private Step step = Step.WAIT_TITLE;
 	private int ticks;
 	private int waited;
@@ -114,6 +123,15 @@ final class Shots {
 			}
 		}
 		if (scales.isEmpty()) scales.add(0);
+		for (String one : System.getProperty("mosaicary.shotsTurns", "").split(",")) {
+			String[] parts = one.trim().split("@");
+			try {
+				// The turn, the tilt, and whether the tilt was asked for (the picture's name says so).
+				turns.add(new int[] { Integer.parseInt(parts[0]), parts.length > 1 ? Integer.parseInt(parts[1]) : -5, parts.length - 1 });
+			} catch (NumberFormatException ignored) {
+				// A malformed or empty entry is skipped.
+			}
+		}
 	}
 
 	static void start(Path folder, MosaicaryClient client) {
@@ -137,12 +155,20 @@ final class Shots {
 					minecraft.gui.setScreen(new TitleScreen());
 					return;
 				}
-				// A game folder used for the first time opens on the accessibility questions; they are taken as answered.
+				// A game folder used for the first time opens on the accessibility questions; they are taken as
+				// answered. Before 1.20 there are none.
+				//#if MC>=12000
 				if (minecraft.gui.screen() instanceof AccessibilityOnboardingScreen) {
+					//#if MC>=12002
 					minecraft.options.onboardingAccessibilityFinished();
+					//#else
+					//$$ minecraft.options.onboardAccessibility = false;
+					//$$ minecraft.options.save();
+					//#endif
 					minecraft.gui.setScreen(new TitleScreen());
 					return;
 				}
+				//#endif
 				if (minecraft.gui.screen() instanceof TitleScreen && minecraft.gui.overlay() == null && ticks > 40) {
 					started = System.currentTimeMillis();
 					if (System.getProperty("mosaicary.shotsServer") != null) {
@@ -154,7 +180,12 @@ final class Shots {
 						// whose first card is the one opened when none has eyes.
 						scale = scales.get(0);
 						if (scale != 0) {
+							// An option is an object of its own from 1.19 on, and before a field.
+							//#if MC>=11900
 							minecraft.options.guiScale().set(scale);
+							//#else
+							//$$ minecraft.options.guiScale = scale;
+							//#endif
 							minecraft.resizeGui();
 						}
 						String search = System.getProperty("mosaicary.shotsSearch");
@@ -213,9 +244,18 @@ final class Shots {
 							opened.id(), opened.eyes(), FreshMoves.status().ready(), wardrobe.eyesPainted() - paintedBefore);
 					}
 					shoot(minecraft, "wardrobe-card-" + label() + ".png");
-					wardrobe.closeDetail();
-					wardrobe.showTab(SkinsScreen.Tab.WARDROBE);
-					go(Step.SHOOT_MINE);
+					if (turns.isEmpty()) leaveCard();
+					go(turns.isEmpty() ? Step.SHOOT_MINE : Step.SHOOT_TURN);
+				}
+			}
+			case SHOOT_TURN -> {
+				int[] turn = turns.get(0);
+				if (waited == 1) wardrobe.setView(turn[1], turn[0]);
+				if (waited > SETTLE_TICKS) {
+					turns.remove(0);
+					shoot(minecraft, "wardrobe-card-" + label() + "-turn" + turn[0] + (turn[2] > 0 ? "-tilt" + turn[1] : "") + ".png");
+					if (turns.isEmpty()) leaveCard();
+					go(turns.isEmpty() ? Step.SHOOT_MINE : Step.SHOOT_TURN);
 				}
 			}
 			case SHOOT_MINE -> {
@@ -236,8 +276,18 @@ final class Shots {
 				boolean ring = false;
 				for (KeyMapping key : minecraft.options.keyMappings) ring |= key.getName().equals("key.mosaicary.ring");
 				serverLog("the model ring's key is " + (ring ? "registered" : "not registered"));
+				//#if MC>=12002
 				ConnectScreen.startConnecting(minecraft.gui.screen(), minecraft, ServerAddress.parseString(address),
 					new ServerData("Mosaicary test", address, ServerData.Type.OTHER), false, null);
+				//#elseif MC>=12000
+				//$$ ConnectScreen.startConnecting(minecraft.screen, minecraft, ServerAddress.parseString(address),
+				//$$ 	new ServerData("Mosaicary test", address, false), false);
+				//#elseif MC>=11700
+				//$$ ConnectScreen.startConnecting(minecraft.screen, minecraft, ServerAddress.parseString(address),
+				//$$ 	new ServerData("Mosaicary test", address, false));
+				//#else
+				//$$ minecraft.setScreen(new ConnectScreen(minecraft.screen, minecraft, new ServerData("Mosaicary test", address, false)));
+				//#endif
 				go(Step.WAIT_JOIN);
 			}
 			case WAIT_JOIN -> {
@@ -276,7 +326,9 @@ final class Shots {
 					for (AbstractWidget widget : ScreenWidgets.of(minecraft.gui.screen())) {
 						if (widget instanceof PauseMenuButton found) button = found;
 					}
-					serverLog(button == null ? "no wardrobe button on the pause menu" : "the pause menu has the wardrobe button");
+					serverLog(button == null ? "no wardrobe button on the pause menu" : "the pause menu has the wardrobe button at "
+						+ button.getX() + ", " + button.getY() + (button.visible ? "" : ", hidden") + " on a screen of "
+						+ minecraft.gui.screen().width + " x " + minecraft.gui.screen().height);
 					//#if MC>=12111
 					if (button != null) button.onPress(new KeyEvent(InputConstants.KEY_RETURN, 0, 0));
 					//#else
@@ -439,6 +491,11 @@ final class Shots {
 		Mosaicary.LOGGER.info("Server run: {}", line);
 	}
 
+	private void leaveCard() {
+		wardrobe.closeDetail();
+		wardrobe.showTab(SkinsScreen.Tab.WARDROBE);
+	}
+
 	private String label() {
 		return scale == 0 ? "auto" : "scale" + scale;
 	}
@@ -460,8 +517,11 @@ final class Shots {
 		// Before 1.21.5 the picture is read back at once rather than handed over later.
 		//#if MC>=12111
 		Screenshot.takeScreenshot(minecraft.gameRenderer.mainRenderTarget(), image -> write(minecraft, image, target));
-		//#else
+		//#elseif MC>=11700
 		//$$ write(minecraft, Screenshot.takeScreenshot(minecraft.getMainRenderTarget()), target);
+		//#else
+		//$$ com.mojang.blaze3d.pipeline.RenderTarget frame = minecraft.getMainRenderTarget();
+		//$$ write(minecraft, Screenshot.takeScreenshot(frame.width, frame.height, frame), target);
 		//#endif
 	}
 

@@ -11,7 +11,11 @@ import com.mopicmp.mosaicary.client.MosaicaryClient;
 import com.mopicmp.mosaicary.client.skins.Skins;
 
 import net.minecraft.client.multiplayer.PlayerInfo;
+//#if MC>=12002
 import net.minecraft.world.entity.player.PlayerSkin;
+//#else
+//$$ import net.minecraft.resources.ResourceLocation;
+//#endif
 //#if MC>=12111
 import net.minecraft.core.ClientAsset;
 //#endif
@@ -31,6 +35,7 @@ public abstract class PlayerInfoMixin {
 	@Shadow
 	public abstract GameProfile getProfile();
 
+	//#if MC>=12002
 	@Inject(method = "getSkin()Lnet/minecraft/world/entity/player/PlayerSkin;", at = @At("RETURN"), cancellable = true)
 	private void mosaicary$shownSkin(CallbackInfoReturnable<PlayerSkin> info) {
 		MosaicaryClient client = MosaicaryClient.instance();
@@ -47,4 +52,23 @@ public abstract class PlayerInfoMixin {
 		//$$ 	given.secure()));
 		//#endif
 	}
+	//#else
+	//$$ // Before 1.20.2 the texture and the arms are asked for apart.
+	//$$ @Inject(method = "getSkinLocation()Lnet/minecraft/resources/ResourceLocation;", at = @At("RETURN"), cancellable = true)
+	//$$ private void mosaicary$shownTexture(CallbackInfoReturnable<ResourceLocation> info) {
+	//$$ 	Skins.Shown shown = shown();
+	//$$ 	if (shown != null) info.setReturnValue(shown.texture());
+	//$$ }
+	//$$
+	//$$ @Inject(method = "getModelName()Ljava/lang/String;", at = @At("RETURN"), cancellable = true)
+	//$$ private void mosaicary$shownModel(CallbackInfoReturnable<String> info) {
+	//$$ 	Skins.Shown shown = shown();
+	//$$ 	if (shown != null) info.setReturnValue(shown.model().id());
+	//$$ }
+	//$$
+	//$$ private Skins.Shown shown() {
+	//$$ 	MosaicaryClient client = MosaicaryClient.instance();
+	//$$ 	return client == null ? null : client.skins().shownOn(getProfile().getId());
+	//$$ }
+	//#endif
 }

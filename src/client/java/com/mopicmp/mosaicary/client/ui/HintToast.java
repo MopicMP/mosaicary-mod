@@ -24,7 +24,9 @@ import net.minecraft.util.FormattedCharSequence;
  */
 public final class HintToast implements Toast {
 
+	//#if MC>=12002
 	private static final Identifier BACKGROUND = Identifier.withDefaultNamespace("toast/tutorial");
+	//#endif
 	private static final int TEXT_LEFT = 30;
 	private static final int TEXT_WIDTH = 126;
 	/** The game's colour for the title line of its tutorial hints. */
@@ -64,7 +66,12 @@ public final class HintToast implements Toast {
 	//#else
 	//$$ @Override
 	//$$ public Visibility render(GuiGraphics graphics, ToastComponent toasts, long fullyVisibleForMs) {
+	//#if MC>=12002
 	//$$ 	graphics.blitSprite(BACKGROUND, 0, 0, width(), height());
+	//#else
+	//$$ 	// Before 1.20.2 the hint's frame is a part of the one sheet of toasts, 160 x 32 at (0, 96).
+	//$$ 	graphics.blitNineSliced(TEXTURE, 0, 0, width(), height(), 4, 4, 4, 4, 160, 32, 0, 96);
+	//#endif
 	//$$ 	draw(graphics, toasts.getMinecraft().font);
 	//$$ 	return fullyVisibleForMs > showForMs ? Visibility.HIDE : Visibility.SHOW;
 	//$$ }

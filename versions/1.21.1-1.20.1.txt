@@ -1,0 +1,2 @@
+net.minecraft.client.resources.PlayerSkin com.mopicmp.mosaicary.client.skins.PlayerSkin
+net.minecraft.client.resources.PlayerSkin$Model com.mopicmp.mosaicary.client.skins.PlayerSkin$Model

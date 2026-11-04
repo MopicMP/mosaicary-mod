@@ -39,9 +39,12 @@ import net.fabricmc.api.ClientModInitializer;
 //#endif
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.ChatComponent;
+//#if MC>=12101
 import net.minecraft.client.gui.components.SpriteIconButton;
+//#endif
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
@@ -283,11 +286,23 @@ public final class MosaicaryClient implements ClientModInitializer {
 		ClientPlatform.onScreenInit((minecraft, screen, width, height) -> {
 			if (screen instanceof PauseScreen) addPauseButton(screen);
 			// The player's skin beside the main and pause menus (shown or not by the settings, read live).
+			// Before 1.20.2 the pause menu without its buttons (F3 + Esc) is told by having none.
+			//#if MC>=12002
 			if (screen instanceof TitleScreen || screen instanceof PauseScreen pause && pause.showsPauseMenu()) {
+			//#else
+			//$$ if (screen instanceof TitleScreen || screen instanceof PauseScreen && !ScreenWidgets.of(screen).isEmpty()) {
+			//#endif
 				MenuSkin.addTo(screen, width, height);
 			}
 			if (screen instanceof TitleScreen || screen instanceof PauseScreen || screen instanceof SkinsScreen) skins.refreshOwn(true);
 		});
+		//#if MC<12000
+		//$$ // Before 1.20: the mod's screens get their background first, as ScreenOrderMixin gives it from 1.20
+		//$$ // on, and the tooltip of the mod's widget under the pointer goes over the whole screen.
+		//$$ ClientPlatform.onScreenRender((screen, pose, mouseX, mouseY, a) -> {
+		//$$ 	if (screen.getClass().getName().startsWith("com.mopicmp.mosaicary.")) screen.renderBackground(pose);
+		//$$ }, (screen, pose, mouseX, mouseY, a) -> com.mopicmp.mosaicary.client.platform.Tooltip.drawOver(screen, pose, mouseX, mouseY));
+		//#endif
 
 		// Hints on entering a world, as toasts that disappear by themselves.
 		ClientPlatform.onJoin(minecraft -> minecraft.execute(() -> {
@@ -380,19 +395,24 @@ public final class MosaicaryClient implements ClientModInitializer {
 	private void addPauseButton(Screen screen) {
 		List<AbstractWidget> widgets = ScreenWidgets.of(screen);
 		List<AbstractWidget> row = new ArrayList<>();
+		// 1.20.1 has no sprite buttons at all, and so no such row.
+		//#if MC>=12101
 		for (AbstractWidget widget : widgets) {
 			if (widget instanceof SpriteIconButton && widget.getWidth() == 20 && widget.getHeight() == 20) {
 				if (row.isEmpty() || row.get(0).getY() == widget.getY()) row.add(widget);
 			}
 		}
+		//#endif
 		Component label = Component.translatable("mosaicary.pause.button",
 			openKey.getTranslatedKeyMessage());
 		if (row.isEmpty()) {
 			// Before 26.1 the pause menu has no row of small icon buttons; the button goes left of its top
-			// button, Back to Game, as the language button stands left of Options on the title screen.
+			// button, Back to Game, as the language button stands left of Options on the title screen. Only
+			// buttons count: in 1.20.1 the menu's title is a widget as wide as the screen above them.
 			AbstractWidget top = null;
 			for (AbstractWidget widget : widgets) {
-				if (widget.getWidth() >= 100 && (top == null || widget.getY() < top.getY())) top = widget;
+				if (!(widget instanceof AbstractButton) || widget.getWidth() < 100) continue;
+				if (top == null || widget.getY() < top.getY()) top = widget;
 			}
 			if (top != null) ScreenWidgets.add(screen, new PauseMenuButton(top.getX() - 24, top.getY(), label, () -> openWardrobe(screen)));
 			return;

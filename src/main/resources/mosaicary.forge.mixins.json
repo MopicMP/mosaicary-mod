@@ -1,0 +1,12 @@
+{
+	"required": true,
+	"minVersion": "0.8",
+	"package": "com.mopicmp.mosaicary.forge.mixin",
+	"compatibilityLevel": "JAVA_@JAVA@",
+	"mixins": [
+		"ChannelListMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

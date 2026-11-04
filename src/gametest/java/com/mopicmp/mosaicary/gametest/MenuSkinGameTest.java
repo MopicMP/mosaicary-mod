@@ -84,6 +84,20 @@ public final class MenuSkinGameTest implements FabricClientGameTest {
 			throw new AssertionError("The head turns the other way after the wardrobe");
 		}
 
+		// Turned with its back to the viewer by a real drag, the face still turns towards the pointer,
+		// over the shoulder on that side: the head used to turn as if the figure faced the viewer, and
+		// looked away from the pointer. And as the pointer crosses behind the figure the head swings
+		// across a little each frame: it used to jump from one shoulder to the other in one.
+		float[] turned = lookTurned(context);
+		System.out.printf("menu skin turned round, face: left %.2f right %.2f; the head's largest step %.2f%n",
+			turned[0], turned[1], turned[2]);
+		if (!(turned[0] > 0 && turned[1] < 0)) {
+			throw new AssertionError("Turned round, the face does not turn towards the pointer: left " + turned[0] + ", right " + turned[1]);
+		}
+		if (turned[2] > 0.4f) {
+			throw new AssertionError("Turned round, the head jumps by " + turned[2] + " as the pointer crosses behind it");
+		}
+
 		// Switched off while the menu is open: gone at once; on again: back.
 		context.runOnClient((Minecraft minecraft) -> {
 			MosaicaryClient.instance().settings().menuSkin = false;
@@ -123,6 +137,57 @@ public final class MenuSkinGameTest implements FabricClientGameTest {
 		MenuSkin figure = context.computeOnClient((Minecraft minecraft) -> MenuSkin.on(minecraft.gui.screen()));
 		if (figure == null) throw new AssertionError("No figure beside the main menu");
 		return figure;
+	}
+
+	/**
+	 * The figure dragged round until its back is to the viewer, then the pointer taken from its left
+	 * to its right in 24 steps at the height of its eyes, crossing behind it: where the face points at
+	 * the first step and the last, and the largest change of the head's turn from one step to the next.
+	 * The drag is done as a hand would: the pointer there first, the button pressed a few frames
+	 * later, then moved a frame at a time.
+	 */
+	private static float[] lookTurned(ClientGameTestContext context) {
+		MenuSkin figure = figure(context);
+		double scale = Steps.scale(context);
+		context.getInput().setCursorPos((figure.getX() + figure.getWidth() / 2.0) * scale, (figure.getY() + figure.getHeight() / 2.0) * scale);
+		context.waitTicks(3);
+		context.getInput().holdMouse(InputConstants.MOUSE_BUTTON_LEFT);
+		// 2.5 degrees a point, on top of the 20 the figure stands turned: 64 points put its back to the viewer.
+		for (int i = 0; i < 8; i++) {
+			context.getInput().moveCursor(8 * scale, 0);
+			context.waitTick();
+		}
+		context.getInput().releaseMouse(InputConstants.MOUSE_BUTTON_LEFT);
+		context.waitTicks(5);
+		if (context.computeOnClient((Minecraft minecraft) -> minecraft.gui.screen()) instanceof SkinsScreen) {
+			throw new AssertionError("Dragging the figure opened the wardrobe");
+		}
+		double eyes = figure.getY() + figure.getHeight() * 0.12;
+		double from = figure.getX() - 150;
+		double to = context.computeOnClient((Minecraft minecraft) -> (double) minecraft.gui.screen().width) - 4;
+		int steps = 24;
+		float first = 0;
+		float last = 0;
+		float before = Float.NaN;
+		float largest = 0;
+		for (int i = 0; i <= steps; i++) {
+			context.getInput().setCursorPos((from + (to - from) * i / steps) * scale, eyes * scale);
+			context.waitTicks(2);
+			float head = context.computeOnClient((Minecraft minecraft) -> MenuSkin.on(minecraft.gui.screen()).headYaw());
+			float face = context.computeOnClient((Minecraft minecraft) -> MenuSkin.on(minecraft.gui.screen()).faceYaw());
+			if (!Float.isNaN(before)) largest = Math.max(largest, Math.abs(head - before));
+			before = head;
+			if (i == 0) {
+				first = face;
+				context.takeScreenshot("menu-skin-7-turned-left");
+			}
+			if (i == steps / 2) context.takeScreenshot("menu-skin-7-turned-behind");
+			if (i == steps) {
+				last = face;
+				context.takeScreenshot("menu-skin-7-turned-right");
+			}
+		}
+		return new float[] { first, last, largest };
 	}
 
 	/** The pointer to the left of the figure, then to the right; the head's turn each time. */

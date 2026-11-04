@@ -76,7 +76,8 @@ public record SkinCard(String id, String name, String arms, int width, int heigh
 		if (!onSite(png, base) || picture.isEmpty() || !onSite(page, base)) return null;
 
 		String arms = "slim".equals(text(json, "arms")) ? "slim" : "classic";
-		boolean found = json.get("found") instanceof JsonElement flag && flag.isJsonPrimitive() && flag.getAsBoolean();
+		JsonElement foundFlag = json.get("found");
+		boolean found = foundFlag != null && foundFlag.isJsonPrimitive() && foundFlag.getAsBoolean();
 		String author = nameOf(json.get("author"));
 		String authorUrl = urlOf(json.get("author"), "url");
 		String publisher = nameOf(json.get("publisher"));
@@ -104,7 +105,8 @@ public record SkinCard(String id, String name, String arms, int width, int heigh
 				if (tag.isJsonPrimitive() && !tag.getAsString().isBlank() && tags.size() < 40) tags.add(tag.getAsString().trim());
 			}
 		}
-		boolean eyes = json.get("eyes") instanceof JsonElement flag && flag.isJsonPrimitive() && flag.getAsBoolean();
+		JsonElement eyesFlag = json.get("eyes");
+		boolean eyes = eyesFlag != null && eyesFlag.isJsonPrimitive() && eyesFlag.getAsBoolean();
 		return new SkinCard(id, text(json, "name").isBlank() ? id : text(json, "name").trim(), arms, width, height, png,
 			picture, page, credit, creditUrl, byWearer, text(json, "license"), text(json, "category"), List.copyOf(tags),
 			number(json, "likes"), number(json, "downloads"), text(json, "published"), eyes,

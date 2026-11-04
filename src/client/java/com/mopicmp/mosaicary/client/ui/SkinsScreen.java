@@ -280,7 +280,7 @@ public final class SkinsScreen extends Screen {
 		if (!card.cut() || mouseX < card.x0() || mouseX >= card.x1() || mouseY < card.y0() || mouseY >= textBottom) return;
 		List<FormattedCharSequence> all = new ArrayList<>();
 		for (Component line : card.whole()) all.addAll(font.split(line, 200));
-		graphics.setTooltipForNextFrame(font, all, mouseX, mouseY);
+		Theme.tooltip(graphics, font, all, mouseX, mouseY);
 	}
 
 	private static final int NOTICE_STRIP = ROW + 8;
@@ -362,7 +362,7 @@ public final class SkinsScreen extends Screen {
 		if (mouseX >= place.x0() && mouseX < freshStripTextRight && mouseY >= place.y0() && mouseY < place.y1()) {
 			List<FormattedCharSequence> all = new ArrayList<>();
 			for (Component line : freshLines(freshShown)) all.addAll(font.split(line, 200));
-			graphics.setTooltipForNextFrame(font, all, mouseX, mouseY);
+			Theme.tooltip(graphics, font, all, mouseX, mouseY);
 		}
 	}
 
@@ -418,9 +418,14 @@ public final class SkinsScreen extends Screen {
 		boolean noMojang = !Skins.canUpload();
 		if (detail() ? !noMojang : tab != Tab.WARDROBE && !noMojang) return null;
 		WardrobeSync.Link link = sync.link();
-		if (link != null && "waiting".equals(link.state())) return Component.translatable("mosaicary.account.waiting", link.code());
+		// A record's component through a local, as the patterns before 1.19 miss a call reading one (ClientPatterns).
+		if (link != null && "waiting".equals(link.state())) {
+			String code = link.code();
+			return Component.translatable("mosaicary.account.waiting", code);
+		}
 		if (link != null && !"starting".equals(link.state()) && !"taken".equals(link.state())) {
-			return Component.translatable("mosaicary.settings.account." + link.state());
+			String state = link.state();
+			return Component.translatable("mosaicary.settings.account." + state);
 		}
 		return Component.translatable(noMojang ? "mosaicary.account.offer.no_mojang" : "mosaicary.account.offer");
 	}
@@ -645,10 +650,24 @@ public final class SkinsScreen extends Screen {
 		search.setMaxLength(100);
 		Component hint = Component.translatable(tab == Tab.CATALOGUE ? "mosaicary.skins.search" : "mosaicary.skins.search.mine");
 		if (font.width(hint) > search.getWidth() - 4) hint = Component.translatable("mosaicary.search.short");
+		//#if MC>=12002
 		search.setHint(hint.copy().withColor(Theme.TEXT_OFF));
+		//#elseif MC>=11903
+		//$$ search.setHint(hint.copy().withStyle(net.minecraft.network.chat.Style.EMPTY.withColor(Theme.TEXT_OFF)));
+		//#else
+		//$$ // A text box has no hint before 1.19.4; its suggestion, drawn grey after the text, stands in while
+		//$$ // the box is empty.
+		//$$ String shownEmpty = hint.getString();
+		//#endif
 		search.setTextColor(Theme.TEXT);
 		search.setValue(tab == Tab.CATALOGUE ? query.words() : wardrobeWords);
+		//#if MC<11903
+		//$$ search.setSuggestion(search.getValue().isEmpty() ? shownEmpty : null);
+		//#endif
 		search.setResponder(value -> {
+			//#if MC<11903
+			//$$ search.setSuggestion(value.isEmpty() ? shownEmpty : null);
+			//#endif
 			if (tab == Tab.CATALOGUE) setQuery(query.withWords(value));
 			else wardrobeWords = value;
 			scroll(0);
@@ -869,14 +888,16 @@ public final class SkinsScreen extends Screen {
 		Wardrobe.Entry entry = entry();
 		if (wardrobe.has(entry.key)) {
 			wardrobe.remove(entry.key, System.currentTimeMillis());
-			say(Component.translatable("mosaicary.skins.mine.removed", entry.name), Theme.TEXT_DIM);
+			String name = entry.name;
+			say(Component.translatable("mosaicary.skins.mine.removed", name), Theme.TEXT_DIM);
 			// A file of one's own taken out of the wardrobe has nowhere to be shown from.
 			if (openEntry != null) closeDetail();
 		} else {
 			entry.added = System.currentTimeMillis();
 			entry.changed = entry.added;
 			wardrobe.add(entry);
-			say(Component.translatable("mosaicary.skins.mine.kept", entry.name), Theme.ACCENT);
+			String name = entry.name;
+			say(Component.translatable("mosaicary.skins.mine.kept", name), Theme.ACCENT);
 		}
 		shownKept = null;
 		refreshButtons();
@@ -924,7 +945,8 @@ public final class SkinsScreen extends Screen {
 			if (!file.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".png") || taken >= 20) continue;
 			taken++;
 			skins.importFile(file, entry -> {
-				say(Component.translatable("mosaicary.skins.mine.added", entry.name), Theme.ACCENT);
+				String name = entry.name;
+				say(Component.translatable("mosaicary.skins.mine.added", name), Theme.ACCENT);
 				if (tab != Tab.WARDROBE) switchTab(Tab.WARDROBE);
 			}, why -> say(Component.translatable("mosaicary.skins.mine.refused." + why, file.getFileName().toString()), Theme.WARN));
 		}
@@ -1051,8 +1073,13 @@ public final class SkinsScreen extends Screen {
 	// ------------------------------------------------------------------ drawing
 
 	@Override
+	//#if MC>=12002
 	public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
 		super.extractBackground(graphics, mouseX, mouseY, a);
+	//#else
+	//$$ public void renderBackground(GuiGraphics graphics) {
+	//$$ 	super.renderBackground(graphics);
+	//#endif
 		graphics.fill(0, 0, width, height, Theme.SCREEN);
 	}
 
@@ -1135,7 +1162,10 @@ public final class SkinsScreen extends Screen {
 		if (content - visible - scroll() < visible) skins.more(query);
 
 		int hovered = cardAt(mouseX, mouseY);
-		graphics.enableScissor(grid.x0(), grid.y0(), grid.x1(), grid.y1());
+		// Read into locals: the preprocessor cannot tell the type of a record's component, and the patterns
+		// that rewrite these calls before 1.20 miss a call reading one (ClientPatterns).
+		int gridX0 = grid.x0(), gridY0 = grid.y0(), gridX1 = grid.x1(), gridY1 = grid.y1();
+		graphics.enableScissor(gridX0, gridY0, gridX1, gridY1);
 		for (int i = 0; i < count; i++) {
 			int left = grid.x0() + (i % grid.columns()) * (grid.cardWidth() + GAP);
 			int top = (int) (grid.y0() - scroll()) + (i / grid.columns()) * (grid.cardHeight() + GAP);
@@ -1171,8 +1201,11 @@ public final class SkinsScreen extends Screen {
 		if (content <= visible) return;
 		int thumb = Math.max(12, visible * visible / content);
 		int at = (int) ((visible - thumb) * (scroll() / (content - visible)));
-		graphics.fill(grid.x1() - 3, grid.y0(), grid.x1() - 1, grid.y1(), Theme.CARD);
-		graphics.fill(grid.x1() - 3, grid.y0() + at, grid.x1() - 1, grid.y0() + at + thumb, Theme.EDGE_HOVER);
+		// Read into locals: the preprocessor cannot tell the type of a record's component, and the patterns
+		// that rewrite these calls before 1.20 miss a call reading one (ClientPatterns).
+		int gridY0 = grid.y0(), gridX1 = grid.x1(), gridY1 = grid.y1();
+		graphics.fill(gridX1 - 3, gridY0, gridX1 - 1, gridY1, Theme.CARD);
+		graphics.fill(gridX1 - 3, gridY0 + at, gridX1 - 1, gridY0 + at + thumb, Theme.EDGE_HOVER);
 	}
 
 	private void drawCatalogueCard(GuiGraphicsExtractor graphics, SkinCard card, int left, int top, Grid grid, boolean hovered) {
@@ -1241,7 +1274,10 @@ public final class SkinsScreen extends Screen {
 		int hovered = cardAt(mouseX, mouseY);
 		long latest = 0;
 		for (Wardrobe.Entry entry : entries) latest = Math.max(latest, entry.worn);
-		graphics.enableScissor(grid.x0(), grid.y0(), grid.x1(), grid.y1());
+		// Read into locals: the preprocessor cannot tell the type of a record's component, and the patterns
+		// that rewrite these calls before 1.20 miss a call reading one (ClientPatterns).
+		int gridX0 = grid.x0(), gridY0 = grid.y0(), gridX1 = grid.x1(), gridY1 = grid.y1();
+		graphics.enableScissor(gridX0, gridY0, gridX1, gridY1);
 		for (int i = 0; i < entries.size(); i++) {
 			int left = grid.x0() + (i % grid.columns()) * (grid.cardWidth() + GAP);
 			int top = (int) (grid.y0() - scroll()) + (i / grid.columns()) * (grid.cardHeight() + GAP);
@@ -1334,7 +1370,8 @@ public final class SkinsScreen extends Screen {
 		} else if (tab == Tab.WARDROBE && !detail()) {
 			icon = Icon.WARDROBE;
 			tint = Theme.TEXT_DIM;
-			said = Component.translatable("mosaicary.skins.mine.count", skins.wardrobe().shown().size());
+			int count = skins.wardrobe().shown().size();
+			said = Component.translatable("mosaicary.skins.mine.count", count);
 		} else {
 			Skins.Shelf shelf = skins.shelf(query);
 			if (shelf.loading) {
@@ -1413,7 +1450,9 @@ public final class SkinsScreen extends Screen {
 			int half = Math.max(centre - cardX0, cardX1 - centre);
 			// Tilted about its middle, as the game measures it from the box's top.
 			float pivot = -((boxBottom - boxTop) / scale - FIGURE_MIDDLE);
-			graphics.enableScissor(cardX0, layout.previewY0 + 1, cardX1, layout.previewY1 - 1);
+			// Through locals, as the patterns before 1.20 miss a call reading a record's component (ClientPatterns).
+			int clipY0 = layout.previewY0 + 1, clipY1 = layout.previewY1 - 1;
+			graphics.enableScissor(cardX0, clipY0, cardX1, clipY1);
 			PlayerPose.draw(graphics, model, moving ? liveEyes.frame() : texture.texture(), scale, rotationX, rotationY, pivot,
 				centre - half, boxTop, centre + half, boxBottom);
 			graphics.disableScissor();
@@ -1473,8 +1512,16 @@ public final class SkinsScreen extends Screen {
 			}
 			y += Icons.SIZE + 3;
 			Icons.draw(graphics, Icon.LICENCE, x, y, Theme.ACCENT);
+			// A record's component through a local, as the patterns before 1.19 miss a call reading one (ClientPatterns).
+			String licenceKey = "mosaicary.licence." + card.license();
 			String licence = card.license().isEmpty() ? Component.translatable("mosaicary.skins.licence.found").getString()
-				: Component.translatableWithFallback("mosaicary.licence." + card.license(), card.license().toUpperCase(Locale.ROOT)).getString();
+				//#if MC>=11903
+				: Component.translatableWithFallback(licenceKey, card.license().toUpperCase(Locale.ROOT)).getString();
+				//#else
+				//$$ : net.minecraft.locale.Language.getInstance().has(licenceKey)
+				//$$ 	? Component.translatable(licenceKey).getString()
+				//$$ 	: card.license().toUpperCase(Locale.ROOT);
+				//#endif
 			graphics.text(font, ellipsis(licence, width - Icons.SIZE - 4), x + Icons.SIZE + 4, y + 4, Theme.TEXT, false);
 			y += Icons.SIZE + 3;
 		} else {
@@ -1497,7 +1544,8 @@ public final class SkinsScreen extends Screen {
 			facts.add(new Object[] { Icon.TAG, Integer.toString(card.tags().size()), card.tags().isEmpty()
 				? Component.translatable("mosaicary.fact.tags.none") : Component.translatable("mosaicary.fact.tags", String.join(", ", card.tags())) });
 			if (!card.category().isEmpty()) {
-				facts.add(new Object[] { Icon.CATEGORY, Component.translatable("mosaicary.skins.category." + card.category()).getString(),
+				String categoryKey = "mosaicary.skins.category." + card.category();
+				facts.add(new Object[] { Icon.CATEGORY, Component.translatable(categoryKey).getString(),
 					Component.translatable("mosaicary.skins.filter.category") });
 			}
 			facts.add(new Object[] { Icon.DATE, card.published().length() >= 10 ? card.published().substring(0, 10) : card.published(),
@@ -1682,7 +1730,11 @@ public final class SkinsScreen extends Screen {
 	}
 
 	@Override
+	//#if MC>=12002
 	public boolean mouseScrolled(double x, double y, double scrollX, double scrollY) {
+	//#else
+	//$$ public boolean mouseScrolled(double x, double y, double scrollY) {
+	//#endif
 		for (Dropdown<?> box : dropdowns) {
 			if (box.isOpen() && box.scrollList(x, y, scrollY, width)) return true;
 		}
@@ -1696,7 +1748,11 @@ public final class SkinsScreen extends Screen {
 			zoom = (float) Math.max(0.5, Math.min(3, zoom * Math.pow(1.15, scrollY)));
 			return true;
 		}
+		//#if MC>=12002
 		return super.mouseScrolled(x, y, scrollX, scrollY);
+		//#else
+		//$$ return super.mouseScrolled(x, y, scrollY);
+		//#endif
 	}
 
 	/** A key the screen takes itself (by its key code): Escape closes an open list or the skin. */
@@ -1799,4 +1855,11 @@ public final class SkinsScreen extends Screen {
 		Skins.Wear state = detail() ? skins.wearState(entry().key) : null;
 		return state == null ? null : state.failure();
 	}
+
+	//#if MC<11900
+	//$$ /** Lays the screen out anew, as rebuildWidgets does from 1.19 on. */
+	//$$ private void rebuildWidgets() {
+	//$$ 	init(minecraft, width, height);
+	//$$ }
+	//#endif
 }

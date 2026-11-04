@@ -33,8 +33,12 @@ import com.mopicmp.mosaicary.net.MosaicaryPayloads;
 import com.mopicmp.mosaicary.platform.Platform;
 import com.mopicmp.mosaicary.wardrobe.Wardrobe;
 
+//#if MC>=11903
 import net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
+//#else
+//$$ import net.minecraft.network.protocol.game.ClientboundPlayerInfoPacket;
+//#endif
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.storage.LevelResource;
@@ -114,13 +118,18 @@ public final class ServerWardrobes {
 			thread.setDaemon(true);
 			return thread;
 		});
-		http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).executor(work).build();
+		http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10))
+			.executor(Platform.requests(work, "Mosaicary skins")).build();
 	}
 
 	private static synchronized void stop() {
 		if (work == null) return;
 		work.shutdownNow();
+		// An HttpClient can be shut down itself from Java 21, the game's Java since 1.20.5; before,
+		// it stops once its executor has and nothing holds it.
+		//#if MC>=12005
 		http.shutdownNow();
+		//#endif
 		work = null;
 		http = null;
 		lastWardrobe.clear();
@@ -186,13 +195,22 @@ public final class ServerWardrobes {
 	/** The signed {@code textures} property of a session-server profile, when its skin is the texture expected. */
 	static Property texturesWith(String body, String texture) {
 		try {
+			// Gson reads a string by a static method from 2.8.6 on; 1.16.5 has 2.8.0.
+			//#if MC>=11700
 			JsonObject profile = JsonParser.parseString(body).getAsJsonObject();
+			//#else
+			//$$ JsonObject profile = new JsonParser().parse(body).getAsJsonObject();
+			//#endif
 			for (JsonElement one : profile.getAsJsonArray("properties")) {
 				JsonObject property = one.getAsJsonObject();
 				if (!"textures".equals(property.get("name").getAsString()) || !property.has("signature")) continue;
 				String value = property.get("value").getAsString();
 				String decoded = new String(Base64.getDecoder().decode(value), StandardCharsets.UTF_8);
+				//#if MC>=11700
 				JsonObject skin = JsonParser.parseString(decoded).getAsJsonObject().getAsJsonObject("textures").getAsJsonObject("SKIN");
+				//#else
+				//$$ JsonObject skin = new JsonParser().parse(decoded).getAsJsonObject().getAsJsonObject("textures").getAsJsonObject("SKIN");
+				//#endif
 				String url = skin == null ? "" : skin.get("url").getAsString().toLowerCase(Locale.ROOT);
 				if (url.endsWith("/texture/" + texture)) return new Property("textures", value, property.get("signature").getAsString());
 			}
@@ -222,8 +240,14 @@ public final class ServerWardrobes {
 		//#endif
 		((ProfileHolder) player).mosaicary$setGameProfile(now);
 
+		// One packet with an action before 1.19.3, two packets since.
+		//#if MC>=11903
 		server.getPlayerList().broadcastAll(new ClientboundPlayerInfoRemovePacket(List.of(player.getUUID())));
 		server.getPlayerList().broadcastAll(ClientboundPlayerInfoUpdatePacket.createPlayerInitializing(List.of(player)));
+		//#else
+		//$$ server.getPlayerList().broadcastAll(new ClientboundPlayerInfoPacket(ClientboundPlayerInfoPacket.Action.REMOVE_PLAYER, player));
+		//$$ server.getPlayerList().broadcastAll(new ClientboundPlayerInfoPacket(ClientboundPlayerInfoPacket.Action.ADD_PLAYER, player));
+		//#endif
 		Object tracked = ((TrackedEntities) player.level().getChunkSource().chunkMap).mosaicary$entities().get(player.getId());
 		if (tracked instanceof Retrack watched) watched.mosaicary$showAgain();
 		Mosaicary.LOGGER.info("Showing {}'s new skin to everyone", player.getName().getString());

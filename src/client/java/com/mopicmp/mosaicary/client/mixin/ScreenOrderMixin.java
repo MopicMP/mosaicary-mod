@@ -1,4 +1,4 @@
-//#if MC<12111
+//#if MC<12111 && MC>=12000
 //$$ package com.mopicmp.mosaicary.client.mixin;
 //$$
 //$$ import java.util.List;
@@ -18,11 +18,15 @@
 //$$  * Draws the mod's screens in the order 1.21.11 draws every screen: the background, then the
 //$$  * screen, whose call to {@code Screen.render} adds the buttons. In 1.21.1 {@code Screen.render}
 //$$  * draws the background itself, blurred, under the buttons but over all the screen drew before
-//$$  * calling it, and the mod's screens draw everything before. Other screens are left as they are.
+//$$  * calling it, and the mod's screens draw everything before. In 1.20.1 every screen draws its
+//$$  * background itself first, and the mod's screens leave it to the game. Other screens are left as
+//$$  * they are. Before 1.20 there is no renderWithTooltip to start from, and ClientPlatform.onScreenRender
+//$$  * does the same from the loader's events.
 //$$  */
 //$$ @Mixin(Screen.class)
 //$$ public abstract class ScreenOrderMixin {
 //$$
+//#if MC>=12002
 //$$ 	@Shadow
 //$$ 	@Final
 //$$ 	private List<Renderable> renderables;
@@ -41,6 +45,15 @@
 //$$ 		for (Renderable one : renderables) one.render(graphics, mouseX, mouseY, partialTick);
 //$$ 		info.cancel();
 //$$ 	}
+//#else
+//$$ 	@Shadow
+//$$ 	public abstract void renderBackground(GuiGraphics graphics);
+//$$
+//$$ 	@Inject(method = "renderWithTooltip", at = @At("HEAD"))
+//$$ 	private void mosaicary$backgroundFirst(GuiGraphics graphics, int mouseX, int mouseY, float partialTick, CallbackInfo info) {
+//$$ 		if (ours()) renderBackground(graphics);
+//$$ 	}
+//#endif
 //$$
 //$$ 	private boolean ours() {
 //$$ 		return getClass().getName().startsWith("com.mopicmp.mosaicary.");

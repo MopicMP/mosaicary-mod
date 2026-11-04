@@ -83,7 +83,8 @@ public final class MojangSkins implements AutoCloseable {
 			thread.setDaemon(true);
 			return thread;
 		});
-		this.http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(15)).executor(work).build();
+		this.http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(15))
+			.executor(com.mopicmp.mosaicary.platform.Platform.requests(work, "Mosaicary skin upload")).build();
 	}
 
 	/**
@@ -209,6 +210,10 @@ public final class MojangSkins implements AutoCloseable {
 	@Override
 	public void close() {
 		work.shutdownNow();
+		// An HttpClient can be shut down itself from Java 21, the game's Java since 1.20.5; before,
+		// it stops once its executor has and nothing holds it.
+		//#if MC>=12005
 		http.shutdownNow();
+		//#endif
 	}
 }

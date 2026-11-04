@@ -273,8 +273,13 @@ public final class SettingsScreen extends Screen {
 	}
 
 	@Override
+	//#if MC>=12002
 	public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
 		super.extractBackground(graphics, mouseX, mouseY, a);
+	//#else
+	//$$ public void renderBackground(GuiGraphics graphics) {
+	//$$ 	super.renderBackground(graphics);
+	//#endif
 		graphics.fill(0, 0, width, height, Theme.SCREEN);
 	}
 
@@ -322,10 +327,13 @@ public final class SettingsScreen extends Screen {
 		if (sync.on(WardrobeSync.Where.ACCOUNT)) {
 			said = Component.translatable("mosaicary.settings.account.as", settings.siteAccount == null ? "" : settings.siteAccount);
 		} else if (link != null && "waiting".equals(link.state())) {
-			said = Component.translatable("mosaicary.settings.account.code", link.code());
+			// A record's component through a local, as the patterns before 1.19 miss a call reading one (ClientPatterns).
+			String code = link.code();
+			said = Component.translatable("mosaicary.settings.account.code", code);
 			ink = Theme.ACCENT;
 		} else if (link != null && !"taken".equals(link.state()) && !"starting".equals(link.state())) {
-			said = Component.translatable("mosaicary.settings.account." + link.state());
+			String state = link.state();
+			said = Component.translatable("mosaicary.settings.account." + state);
 			ink = Theme.WARN;
 		} else {
 			said = Component.translatable("mosaicary.settings.account");

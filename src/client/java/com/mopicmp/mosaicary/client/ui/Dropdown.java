@@ -8,8 +8,10 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Tooltip;
+//#if MC>=11700
 import net.minecraft.client.gui.narration.NarratedElementType;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
+//#endif
 //#if MC>=12111
 import net.minecraft.client.input.MouseButtonEvent;
 //#endif
@@ -29,7 +31,12 @@ import net.minecraft.network.chat.Component;
  * screen calls {@link #extractList} last and offers clicks to {@link #clickList}
  * first.
  */
+// Before 1.19.3 a widget has no getters for its place, no isHovered and no tooltip (PlacedWidget).
+//#if MC>=11903
 public class Dropdown<T> extends AbstractWidget {
+//#else
+//$$ public class Dropdown<T> extends com.mopicmp.mosaicary.client.platform.PlacedWidget {
+//#endif
 
 	public record Option<T>(T value, Component label) { }
 
@@ -107,7 +114,7 @@ public class Dropdown<T> extends AbstractWidget {
 	}
 
 	@Override
-	protected void extractWidgetRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
+	public void extractWidgetRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
 		boolean hovered = isHovered() || open;
 		Theme.card(graphics, getX(), getY(), getRight(), getBottom(), hovered ? Theme.CARD_HOVER : Theme.CARD,
 			open ? Theme.ACCENT : hovered ? Theme.EDGE_HOVER : Theme.EDGE);
@@ -236,8 +243,27 @@ public class Dropdown<T> extends AbstractWidget {
 		return true;
 	}
 
+	//#if MC>=11700
 	@Override
-	protected void updateWidgetNarration(NarrationElementOutput output) {
+	public void updateWidgetNarration(NarrationElementOutput output) {
 		output.add(NarratedElementType.TITLE, Component.empty().append(name).append(": ").append(options.get(selected).label()));
 	}
+	//#else
+	//$$ // Before 1.17 a widget is narrated by one message, its label unless it says otherwise.
+	//$$ @Override
+	//$$ protected net.minecraft.network.chat.MutableComponent createNarrationMessage() {
+	//$$ 	return new net.minecraft.network.chat.TextComponent("").append(name).append(": ").append(options.get(selected).label());
+	//$$ }
+	//#endif
+
+	//#if MC<12002
+	//$$ /** The widget's right and bottom edges, which 1.20.1 does not give, only its place and size. */
+	//$$ private int getRight() {
+	//$$ 	return getX() + getWidth();
+	//$$ }
+	//$$
+	//$$ private int getBottom() {
+	//$$ 	return getY() + getHeight();
+	//$$ }
+	//#endif
 }

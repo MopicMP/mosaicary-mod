@@ -11,7 +11,9 @@ import java.security.Signature;
 
 import org.junit.jupiter.api.Test;
 
+//#if MC>=11900
 import net.minecraft.util.Signer;
+//#endif
 
 /** What the relay signs with the profile key, in the shape the site checks. */
 class WearRelayTest {
@@ -32,7 +34,16 @@ class WearRelayTest {
 		KeyPair pair = generator.generateKeyPair();
 		byte[] payload = WearRelay.payload("0".repeat(40), "2026-10-17T10:00:00.000Z", "x",
 			"0f8fad5b-d9cb-469f-a165-70867728950e");
+		//#if MC>=11900
 		byte[] signature = Signer.from(pair.getPrivate(), "SHA256withRSA").sign(payload);
+		//#else
+		//$$ // Before 1.19 the relay signs by itself, with the private key read out of Mojang's answer (PEM).
+		//$$ String pem = "-----BEGIN RSA PRIVATE KEY-----\n"
+		//$$ 	+ java.util.Base64.getMimeEncoder().encodeToString(pair.getPrivate().getEncoded()) + "\n-----END RSA PRIVATE KEY-----\n";
+		//$$ java.security.PrivateKey read = java.security.KeyFactory.getInstance("RSA")
+		//$$ 	.generatePrivate(new java.security.spec.PKCS8EncodedKeySpec(WearRelay.pem(pem)));
+		//$$ byte[] signature = WearRelay.signed(read, payload);
+		//#endif
 
 		Signature check = Signature.getInstance("SHA256withRSA");
 		check.initVerify(pair.getPublic());

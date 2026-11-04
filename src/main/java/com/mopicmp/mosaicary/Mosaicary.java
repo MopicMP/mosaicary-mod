@@ -29,7 +29,11 @@ public final class Mosaicary implements ModInitializer {
 	public static final Logger LOGGER = LoggerFactory.getLogger("Mosaicary");
 
 	public static Identifier id(String path) {
+		//#if MC>=12100
 		return Identifier.fromNamespaceAndPath(ID, path);
+		//#else
+		//$$ return new ResourceLocation(ID, path);
+		//#endif
 	}
 
 	//#if FABRIC>=1

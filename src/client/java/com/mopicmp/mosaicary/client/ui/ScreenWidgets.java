@@ -16,15 +16,34 @@ public final class ScreenWidgets {
 
 	/** The screen's widgets as they are now; a copy, so adding while going through it is safe. */
 	public static List<AbstractWidget> of(Screen screen) {
+		//#if MC>=11700
 		List<AbstractWidget> widgets = new ArrayList<>();
 		for (Renderable one : ((ScreenAccessor) screen).mosaicary$renderables()) {
 			if (one instanceof AbstractWidget widget) widgets.add(widget);
 		}
 		return widgets;
+		//#else
+		//$$ return new ArrayList<>(((ScreenAccessor) screen).mosaicary$buttons());
+		//#endif
 	}
 
+	//#if MC<12002
+	//$$ /** A widget's right edge, which 1.20.1 does not give, only its place and size (see ClientPatterns). */
+	//$$ public static int right(AbstractWidget widget) {
+	//$$ 	return widget.getX() + widget.getWidth();
+	//$$ }
+	//$$
+	//$$ public static int bottom(AbstractWidget widget) {
+	//$$ 	return widget.getY() + widget.getHeight();
+	//$$ }
+	//$$
+	//#endif
 	/** Adds a widget to the screen, drawn, clickable and narrated like the screen's own. */
 	public static void add(Screen screen, AbstractWidget widget) {
+		//#if MC>=11700
 		((ScreenAccessor) screen).mosaicary$addRenderableWidget(widget);
+		//#else
+		//$$ ((ScreenAccessor) screen).mosaicary$addButton(widget);
+		//#endif
 	}
 }

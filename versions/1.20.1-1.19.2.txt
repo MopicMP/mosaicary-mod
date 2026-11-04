@@ -1,0 +1,5 @@
+net.minecraft.server.level.ServerPlayer serverLevel() getLevel()
+net.minecraft.client.gui.GuiGraphics com.mojang.blaze3d.vertex.PoseStack
+net.minecraft.client.gui.components.Tooltip com.mopicmp.mosaicary.client.platform.Tooltip
+net.minecraft.client.gui.components.AbstractWidget renderWidget() renderButton()
+net.minecraft.client.gui.components.AbstractWidget updateWidgetNarration() updateNarration()

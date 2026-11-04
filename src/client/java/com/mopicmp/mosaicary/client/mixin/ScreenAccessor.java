@@ -18,9 +18,19 @@ import net.minecraft.client.gui.screens.Screen;
 @Mixin(Screen.class)
 public interface ScreenAccessor {
 
+	// Before 1.17 a screen keeps its widgets in a list of its own, and adds them by addButton, which
+	// takes and gives the widget itself.
+	//#if MC>=11700
 	@Accessor("renderables")
 	List<Renderable> mosaicary$renderables();
 
 	@Invoker("addRenderableWidget")
 	GuiEventListener mosaicary$addRenderableWidget(GuiEventListener widget);
+	//#else
+	//$$ @Accessor("buttons")
+	//$$ List<net.minecraft.client.gui.components.AbstractWidget> mosaicary$buttons();
+	//$$
+	//$$ @Invoker("addButton")
+	//$$ net.minecraft.client.gui.components.AbstractWidget mosaicary$addButton(net.minecraft.client.gui.components.AbstractWidget widget);
+	//#endif
 }

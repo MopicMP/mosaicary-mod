@@ -15,8 +15,10 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.components.AbstractWidget;
+//#if MC>=11700
 import net.minecraft.client.gui.narration.NarratedElementType;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
+//#endif
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
@@ -65,7 +67,12 @@ import net.minecraft.world.entity.player.PlayerSkin;
  * its own. Read on every frame, so a change, in the wardrobe's settings, through Mod Menu or in
  * the settings file, shows on the open menu at once.
  */
+// Before 1.19.3 a widget has no getters for its place, no isHovered and no tooltip (PlacedWidget).
+//#if MC>=11903
 public final class MenuSkin extends AbstractWidget {
+//#else
+//$$ public final class MenuSkin extends com.mopicmp.mosaicary.client.platform.PlacedWidget {
+//#endif
 
 	/** Which menu a figure stands beside. */
 	public enum Beside {
@@ -195,7 +202,11 @@ public final class MenuSkin extends AbstractWidget {
 			setX(place.x());
 			setY(place.y());
 			setWidth(place.width());
+			//#if MC>=12002
 			setHeight(place.height());
+			//#else
+			//$$ height = place.height();
+			//#endif
 		}
 		return place;
 	}
@@ -266,14 +277,24 @@ public final class MenuSkin extends AbstractWidget {
 		if (shown != null) return new Worn(shown.texture(), shown.model(), shown.pixels());
 		if (!asked) {
 			asked = true;
+			//#if MC>=12002
 			CompletableFuture.supplyAsync(minecraft::getGameProfile, Util.nonCriticalIoPool())
+			//#else
+			//$$ CompletableFuture.supplyAsync(() -> PlayerSkin.accountProfile(minecraft), Util.ioPool())
+			//#endif
 				//#if MC>=12111
 				.thenAccept(profile -> minecraft.execute(() -> accountSkin = minecraft.getSkinManager().createLookup(profile, false)));
-				//#else
+				//#elseif MC>=12002
 				//$$ .thenAccept(profile -> minecraft.execute(() -> accountSkin = minecraft.getSkinManager().lookupInsecure(profile)));
+				//#else
+				//$$ .thenAccept(profile -> minecraft.execute(() -> accountSkin = PlayerSkin.lookup(minecraft, profile)));
 				//#endif
 		}
+		//#if MC>=12002
 		PlayerSkin skin = accountSkin != null ? accountSkin.get() : DefaultPlayerSkin.get(me);
+		//#else
+		//$$ PlayerSkin skin = accountSkin != null ? accountSkin.get() : PlayerSkin.ofDefault(me);
+		//#endif
 		// Before 1.21.9 a skin names its texture and the address it came from rather than one asset.
 		//#if MC>=12111
 		return new Worn(skin.body().texturePath(), skin.model(), accountPixels(skin));
@@ -323,7 +344,7 @@ public final class MenuSkin extends AbstractWidget {
 	}
 
 	@Override
-	protected void extractWidgetRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
+	public void extractWidgetRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
 		// Hidden while the menu fades in, which a drawn model cannot follow, and when switched off.
 		if ((!enabled() && !preview) || alpha < 0.6f || placeNow() == null) return;
 		if (MosaicaryClient.instance().skins().askingOwn()
@@ -342,7 +363,10 @@ public final class MenuSkin extends AbstractWidget {
 		// The skin renderer looks at the model from its front, so a positive turn of the head
 		// turns the face to the left of the screen: the pointer to the left gives a positive turn.
 		// (Measured on the game test's screenshots: the other sign looked away from the pointer.)
-		lastYaw = (float) Math.atan((middle - mouseX) / 70f) * 0.9f;
+		// The pointer is taken 70 points in front of the screen. The body faces 20 + turned degrees
+		// to the right of the screen, so the head turns by the rest, the shorter way round: with the
+		// figure's back to the viewer, the pointer on the left is over its left shoulder.
+		lastYaw = neck(shorter((float) Math.atan2(middle - mouseX, 70f) + body()));
 		PlayerPose.look(model, lastYaw, (float) Math.atan((mouseY - eyes) / 70f) * 0.6f);
 
 		float scale = 0.97f * getHeight() / 2.125f;
@@ -355,9 +379,41 @@ public final class MenuSkin extends AbstractWidget {
 
 	private float lastYaw;
 
-	/** The head's turn last drawn, in radians; for the game test. */
+	/** The head's turn last drawn, in radians, within the neck's limit; for the game test. */
 	public float headYaw() {
 		return lastYaw;
+	}
+
+	/** Where the face last drawn points, in radians from the viewer, positive to the left of the screen; for the game test. */
+	public float faceYaw() {
+		return shorter(PlayerPose.headYaw(lastYaw) - body());
+	}
+
+	/** How far the body is turned to the right of the screen, in radians. */
+	private float body() {
+		return (float) Math.toRadians(20 + turned);
+	}
+
+	/** How far round from the face the pointer can be with the head still turned as far as it goes: 120 degrees. */
+	private static final float HELD = (float) (2 * Math.PI / 3);
+
+	/**
+	 * The head's turn for a pointer that far round from the face, in radians: nine tenths of the way,
+	 * up to the neck's limit; held there while the pointer goes on round to the side; then back
+	 * towards straight ahead as it goes on behind, reaching it with the pointer right behind the head.
+	 * So with the figure's back to the viewer, the pointer crossing behind it swings the head across
+	 * from one shoulder to the other, rather than throwing it there in one frame.
+	 */
+	private static float neck(float wanted) {
+		float away = Math.abs(wanted);
+		if (away * 0.9f <= PlayerPose.NECK) return wanted * 0.9f;
+		if (away <= HELD) return Math.signum(wanted) * PlayerPose.NECK;
+		return Math.signum(wanted) * PlayerPose.NECK * (float) ((Math.PI - away) / (Math.PI - HELD));
+	}
+
+	/** The same turn between minus and plus half a circle. */
+	private static float shorter(float radians) {
+		return (float) (radians - 2 * Math.PI * Math.rint(radians / (2 * Math.PI)));
 	}
 
 	/** How many times the figure's eyes have been painted anew, 0 without live eyes; for the game test. */
@@ -419,8 +475,27 @@ public final class MenuSkin extends AbstractWidget {
 		// The click sound plays when the wardrobe opens: a press that turns the figure is not a click.
 	}
 
+	//#if MC>=11700
 	@Override
-	protected void updateWidgetNarration(NarrationElementOutput output) {
+	public void updateWidgetNarration(NarrationElementOutput output) {
 		output.add(NarratedElementType.TITLE, Component.translatable("mosaicary.menu_skin.tooltip"));
 	}
+	//#else
+	//$$ // Before 1.17 a widget is narrated by one message, its label unless it says otherwise.
+	//$$ @Override
+	//$$ protected net.minecraft.network.chat.MutableComponent createNarrationMessage() {
+	//$$ 	return new net.minecraft.network.chat.TranslatableComponent("mosaicary.menu_skin.tooltip");
+	//$$ }
+	//#endif
+
+	//#if MC<12002
+	//$$ /** The widget's right and bottom edges, which 1.20.1 does not give, only its place and size. */
+	//$$ private int getRight() {
+	//$$ 	return getX() + getWidth();
+	//$$ }
+	//$$
+	//$$ private int getBottom() {
+	//$$ 	return getY() + getHeight();
+	//$$ }
+	//#endif
 }

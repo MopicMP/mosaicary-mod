@@ -84,6 +84,23 @@ public final class FreshMoves {
 	public static void switchOn(String packId) {
 		Minecraft minecraft = Minecraft.getInstance();
 		PackRepository repository = minecraft.getResourcePackRepository();
+		//#if MC>=11903
 		if (repository.addPack(packId)) minecraft.options.updateResourcePacks(repository);
+		//#else
+		//$$ // Before, the resource packs screen does it all itself: the options listing what is on, then a reload.
+		//$$ if (!repository.isAvailable(packId) || repository.getSelectedIds().contains(packId)) return;
+		//$$ java.util.List<String> selected = new java.util.ArrayList<>(repository.getSelectedIds());
+		//$$ selected.add(packId);
+		//$$ repository.setSelected(selected);
+		//$$ minecraft.options.resourcePacks.clear();
+		//$$ minecraft.options.incompatibleResourcePacks.clear();
+		//$$ for (net.minecraft.server.packs.repository.Pack pack : repository.getSelectedPacks()) {
+		//$$ 	if (pack.isFixedPosition()) continue;
+		//$$ 	minecraft.options.resourcePacks.add(pack.getId());
+		//$$ 	if (!pack.getCompatibility().isCompatible()) minecraft.options.incompatibleResourcePacks.add(pack.getId());
+		//$$ }
+		//$$ minecraft.options.save();
+		//$$ minecraft.reloadResourcePacks();
+		//#endif
 	}
 }

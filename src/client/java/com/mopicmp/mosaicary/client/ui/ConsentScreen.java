@@ -88,7 +88,12 @@ public final class ConsentScreen extends Screen {
 	}
 
 	@Override
+	//#if MC>=12002
 	public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
+	//#else
+	//$$ public void renderBackground(GuiGraphics graphics) {
+	//$$ 	float a = minecraft.getFrameTime();
+	//#endif
 		// The catalogue stays in view behind the dialog, dimmed.
 		if (parent != null) parent.extractRenderState(graphics, -10000, -10000, a);
 		Theme.nextLayer(graphics);

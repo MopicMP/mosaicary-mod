@@ -17,6 +17,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
 
+import com.google.gson.JsonParser;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mopicmp.mosaicary.Mosaicary;
 import com.mopicmp.mosaicary.client.render.Pictures;
@@ -885,8 +886,12 @@ public final class Skins {
 		if (info == null) return null;
 		for (com.mojang.authlib.properties.Property property : info.getProfile().properties().get("textures")) {
 			try {
+				//#if MC>=12002
 				String decoded = new String(java.util.Base64.getDecoder().decode(property.value()), java.nio.charset.StandardCharsets.UTF_8);
-				var skin = com.google.gson.JsonParser.parseString(decoded).getAsJsonObject().getAsJsonObject("textures")
+				//#else
+				//$$ String decoded = new String(java.util.Base64.getDecoder().decode(property.getValue()), java.nio.charset.StandardCharsets.UTF_8);
+				//#endif
+				var skin = JsonParser.parseString(decoded).getAsJsonObject().getAsJsonObject("textures")
 					.getAsJsonObject("SKIN");
 				if (skin != null) return MojangSkins.textureOf(skin.get("url").getAsString());
 			} catch (RuntimeException unreadable) {

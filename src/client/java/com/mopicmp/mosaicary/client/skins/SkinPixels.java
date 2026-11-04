@@ -17,6 +17,14 @@ public final class SkinPixels {
 	private SkinPixels() { }
 
 	/**
+	 * ARGB as ABGR and back: red and blue change places. The game's pictures keep their pixels as
+	 * ABGR before 1.21.2; 1.20.1 has nothing of its own to turn one into the other.
+	 */
+	public static int swapRedBlue(int colour) {
+		return (colour & 0xFF00FF00) | ((colour & 0xFF) << 16) | ((colour >>> 16) & 0xFF);
+	}
+
+	/**
 	 * The skin as the game draws it, 64 x 64; null for any size the game would refuse
 	 * (anything but 64 x 64 and 64 x 32).
 	 */

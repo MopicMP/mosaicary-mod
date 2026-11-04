@@ -37,9 +37,13 @@ import com.mopicmp.mosaicary.wardrobe.Wardrobe;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.player.AbstractClientPlayer;
+//#if MC>=11900
 import net.minecraft.util.Signer;
+//#endif
 import net.minecraft.util.Util;
+//#if MC>=11903
 import net.minecraft.world.entity.player.ProfileKeyPair;
+//#endif
 
 /**
  * The client of the site's wear relay: tells mosaicary.com which model the local
@@ -311,7 +315,13 @@ public final class WearRelay implements WornModels.Listener {
 	private static boolean sessionIsMojang(Minecraft minecraft) {
 		if (minecraft.services().sessionService().getClass() != MinecraftServicesSessionService.class) return false;
 		Optional<Environment> chosen = EnvironmentParser.getEnvironmentFromProperties();
+		// Before 1.17 authlib's production environment is the enum's value itself; one read from the
+		// properties is another object, so the hosts are compared.
+		//#if MC>=11700
 		return chosen.isEmpty() || chosen.get().equals(MinecraftServicesEnvironment.PROD.getEnvironment());
+		//#else
+		//$$ return chosen.isEmpty() || chosen.get().getSessionHost().equals(com.mojang.authlib.yggdrasil.YggdrasilEnvironment.PROD.getSessionHost());
+		//#endif
 	}
 
 	/** Forgets every model shown on others. */
@@ -422,12 +432,94 @@ public final class WearRelay implements WornModels.Listener {
 
 	private record Signed(String token, long until) { }
 
+	/** The player's chat key as Mojang certified it, and signing with its private half. */
+	private record ChatKey(java.security.PublicKey publicKey, Instant expiresAt, byte[] keySignature,
+			java.util.function.Function<byte[], byte[]> sign) { }
+
+	/**
+	 * The chat key, asked of the game. From 1.19.3 on the game hands out the pair; in 1.19.2 the
+	 * certified public half and a signer; before 1.19 it has none, and it is asked of Mojang instead.
+	 */
+	private static CompletableFuture<ChatKey> chatKey() {
+		//#if MC>=11903
+		return Minecraft.getInstance().getProfileKeyPairManager().prepareKeyPair().thenApply(found -> {
+			if (found.isEmpty()) throw new NoKey();
+			ProfileKeyPair pair = found.get();
+			net.minecraft.world.entity.player.ProfilePublicKey.Data data = pair.publicKey().data();
+			Signer signer = Signer.from(pair.privateKey(), "SHA256withRSA");
+			return new ChatKey(data.key(), data.expiresAt(), data.keySignature(), signer::sign);
+		});
+		//#elseif MC>=11900
+		//$$ net.minecraft.client.multiplayer.ProfileKeyPairManager keys = Minecraft.getInstance().getProfileKeyPairManager();
+		//$$ return keys.preparePublicKey().thenApply(found -> {
+		//$$ 	Signer signer = keys.signer();
+		//$$ 	if (found.isEmpty() || signer == null) throw new NoKey();
+		//$$ 	net.minecraft.world.entity.player.ProfilePublicKey.Data data = found.get();
+		//$$ 	return new ChatKey(data.key(), data.expiresAt(), data.keySignature(), signer::sign);
+		//$$ });
+		//#else
+		//$$ return mojangChatKey(Minecraft.getInstance().getUser().getAccessToken());
+		//#endif
+	}
+
+	//#if MC<11900
+	//$$ private static final java.net.URI CERTIFICATES = java.net.URI.create("https://api.minecraftservices.com/player/certificates");
+	//$$
+	//$$ /**
+	//$$  * The chat key asked of Mojang with the account's access token, as the game itself asks for it from
+	//$$  * 1.19 on (ProfileKeyPairManager): Mojang answers with a key pair and its signature of the public
+	//$$  * half for this account. The token goes to Mojang alone. An account Mojang does not know (offline,
+	//$$  * or a token that has run out) has no key, as with the game's.
+	//$$  */
+	//$$ private static CompletableFuture<ChatKey> mojangChatKey(String accessToken) {
+	//$$ 	java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder(CERTIFICATES)
+	//$$ 		.timeout(TIMEOUT)
+	//$$ 		.header("Authorization", "Bearer " + accessToken)
+	//$$ 		.header("Content-Type", "application/json")
+	//$$ 		.POST(java.net.http.HttpRequest.BodyPublishers.noBody())
+	//$$ 		.build();
+	//$$ 	return java.net.http.HttpClient.newBuilder().connectTimeout(TIMEOUT).build()
+	//$$ 		.sendAsync(request, java.net.http.HttpResponse.BodyHandlers.ofString())
+	//$$ 		.thenApply(answer -> {
+	//$$ 			if (answer.statusCode() != 200) throw new NoKey();
+	//$$ 			try {
+	//$$ 				JsonObject said = JsonParser.parseString(answer.body()).getAsJsonObject();
+	//$$ 				JsonObject pair = said.getAsJsonObject("keyPair");
+	//$$ 				java.security.KeyFactory rsa = java.security.KeyFactory.getInstance("RSA");
+	//$$ 				java.security.PrivateKey privateKey = rsa.generatePrivate(new java.security.spec.PKCS8EncodedKeySpec(
+	//$$ 					pem(pair.get("privateKey").getAsString())));
+	//$$ 				java.security.PublicKey publicKey = rsa.generatePublic(new java.security.spec.X509EncodedKeySpec(
+	//$$ 					pem(pair.get("publicKey").getAsString())));
+	//$$ 				byte[] keySignature = Base64.getDecoder().decode(said.get("publicKeySignatureV2").getAsString());
+	//$$ 				Instant expiresAt = Instant.parse(said.get("expiresAt").getAsString());
+	//$$ 				return new ChatKey(publicKey, expiresAt, keySignature, bytes -> signed(privateKey, bytes));
+	//$$ 			} catch (RuntimeException | java.security.GeneralSecurityException odd) {
+	//$$ 				throw new NoKey();
+	//$$ 			}
+	//$$ 		});
+	//$$ }
+	//$$
+	//$$ /** The bytes inside a PEM block, whatever its header names them; Mojang calls both halves "RSA". */
+	//$$ static byte[] pem(String text) {
+	//$$ 	return Base64.getMimeDecoder().decode(text.replaceAll("-----[A-Z ]+-----", ""));
+	//$$ }
+	//$$
+	//$$ static byte[] signed(java.security.PrivateKey key, byte[] bytes) {
+	//$$ 	try {
+	//$$ 		java.security.Signature signature = java.security.Signature.getInstance("SHA256withRSA");
+	//$$ 		signature.initSign(key);
+	//$$ 		signature.update(bytes);
+	//$$ 		return signature.sign();
+	//$$ 	} catch (java.security.GeneralSecurityException failed) {
+	//$$ 		throw new IllegalStateException(failed);
+	//$$ 	}
+	//$$ }
+	//#endif
+
 	/** begin, sign, verify; off the client thread except for asking the game for its key. */
 	private CompletableFuture<Signed> signIn(UUID me) {
 		String uuid = me.toString();
-		return Minecraft.getInstance().getProfileKeyPairManager().prepareKeyPair().thenCompose(found -> {
-			if (found.isEmpty()) throw new NoKey();
-			ProfileKeyPair pair = found.get();
+		return chatKey().thenCompose(key -> {
 			return site.call("POST", "/api/wear/begin", "{}", null, TIMEOUT).thenCompose(begun -> {
 				if (!begun.ok()) throw refusal(begun);
 				JsonObject challenge = JsonParser.parseString(begun.body()).getAsJsonObject();
@@ -439,12 +531,12 @@ public final class WearRelay implements WornModels.Listener {
 				proof.addProperty("issued", issued);
 				proof.addProperty("sig", sig);
 				proof.addProperty("uuid", uuid);
-				proof.addProperty("publicKey", Base64.getEncoder().encodeToString(pair.publicKey().data().key().getEncoded()));
+				proof.addProperty("publicKey", Base64.getEncoder().encodeToString(key.publicKey().getEncoded()));
 				// A number: Mojang certifies the expiry in milliseconds.
-				proof.addProperty("expiresAt", pair.publicKey().data().expiresAt().toEpochMilli());
-				proof.addProperty("keySignature", Base64.getEncoder().encodeToString(pair.publicKey().data().keySignature()));
+				proof.addProperty("expiresAt", key.expiresAt().toEpochMilli());
+				proof.addProperty("keySignature", Base64.getEncoder().encodeToString(key.keySignature()));
 				proof.addProperty("signature", Base64.getEncoder().encodeToString(
-					Signer.from(pair.privateKey(), "SHA256withRSA").sign(payload(serverId, issued, sig, uuid))));
+					key.sign().apply(payload(serverId, issued, sig, uuid))));
 				return site.call("POST", "/api/wear/verify", proof.toString(), null, TIMEOUT);
 			});
 		}).thenApply(verified -> {

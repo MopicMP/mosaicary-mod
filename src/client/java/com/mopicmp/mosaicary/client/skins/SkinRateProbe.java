@@ -54,7 +54,11 @@ public final class SkinRateProbe {
 			said.accept("Cannot measure here: needs a Mojang account in a world, with a skin of its own on the account");
 			return;
 		}
+		//#if MC>=12002
 		String original = info.getSkin().model() == PlayerModelType.SLIM ? "slim" : "classic";
+		//#else
+		//$$ String original = "slim".equals(info.getModelName()) ? "slim" : "classic";
+		//#endif
 		Path out = com.mopicmp.mosaicary.platform.Platform.gameDir().resolve("mosaicary")
 			.resolve("measure-skins-" + Instant.now().toString().replace(':', '-') + ".json");
 		CompletableFuture.runAsync(() -> {

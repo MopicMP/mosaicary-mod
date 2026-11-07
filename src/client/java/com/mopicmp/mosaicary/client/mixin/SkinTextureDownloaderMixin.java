@@ -20,8 +20,8 @@ import net.minecraft.core.ClientAsset;
  * Makes every skin the game downloads, the player's own and everyone else's, what the wardrobe
  * shows ({@link SkinPixels}). Its see-through places stay: the game makes a skin's base layer
  * solid, which is what turns them black, and the player model is drawn with alpha, so nothing else
- * is needed. And a corner filled with a background is emptied, or the Fresh Moves pack draws that
- * background over the face.
+ * is needed. And the corners are emptied of what the Fresh Moves pack would draw over the face from
+ * them, unless they carry a copy of the eyes ({@link SkinPixels#clearPackCorners}).
  *
  * Only this game sees the difference. A player without the mod still sees those places black,
  * which the wardrobe warns about ({@code SkinPixels.seeThrough}).
@@ -57,14 +57,14 @@ abstract class SkinTextureDownloaderMixin {
 
 	private static void clearCorners(NativeImage image) {
 		if (image.getWidth() != 64 || image.getHeight() != 64) return;
+		int[] sheet = new int[64 * 64];
+		for (int y = 0; y < 64; y++) {
+			for (int x = 0; x < 64; x++) sheet[y * 64 + x] = image.getPixel(x, y);
+		}
+		if (!SkinPixels.clearPackCorners(sheet)) return;
 		for (int[] corner : SkinPixels.CORNERS) {
-			int solid = 0;
 			for (int y = corner[1]; y < corner[1] + 8; y++) {
-				for (int x = corner[0]; x < corner[0] + 8; x++) if ((image.getPixel(x, y) >>> 24) >= 128) solid++;
-			}
-			if (solid <= SkinPixels.CORNER_DRAWN_MOST) continue;
-			for (int y = corner[1]; y < corner[1] + 8; y++) {
-				for (int x = corner[0]; x < corner[0] + 8; x++) image.setPixel(x, y, 0);
+				for (int x = corner[0]; x < corner[0] + 8; x++) image.setPixel(x, y, sheet[y * 64 + x]);
 			}
 		}
 	}

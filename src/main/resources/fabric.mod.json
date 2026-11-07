@@ -12,7 +12,7 @@
 		"sources": "https://github.com/MopicMP/mosaicary-mod",
 		"issues": "https://github.com/MopicMP/mosaicary-mod/issues"
 	},
-	"license": "All-Rights-Reserved",
+	"license": "LGPL-3.0-only",
 	"icon": "assets/mosaicary/icon.png",
 	"environment": "*",
 	"entrypoints": {

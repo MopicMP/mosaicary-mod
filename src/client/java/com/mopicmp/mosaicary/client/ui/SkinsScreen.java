@@ -5,11 +5,16 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 import java.util.function.BooleanSupplier;
 
+import com.google.gson.JsonObject;
 import com.mojang.blaze3d.Blaze3D;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mopicmp.mosaicary.client.MosaicaryClient;
+import com.mopicmp.mosaicary.client.compat.GenderFigure;
+import com.mopicmp.mosaicary.client.compat.GenderMod;
+import com.mopicmp.mosaicary.client.compat.SkinLayers3d;
 import com.mopicmp.mosaicary.client.site.Settings;
 import com.mopicmp.mosaicary.client.site.SiteClient;
 import com.mopicmp.mosaicary.client.skins.FreshMoves;
@@ -22,6 +27,7 @@ import com.mopicmp.mosaicary.client.skins.WardrobeSync;
 import com.mopicmp.mosaicary.wardrobe.Wardrobe;
 
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 //#if MC>=12111
@@ -111,6 +117,9 @@ public final class SkinsScreen extends Screen {
 
 	private PlayerPose.Figure wideModel;
 	private PlayerPose.Figure slimModel;
+
+	/** Female Gender Mod's body, set in place of the open skin's description; null while that shows. */
+	private BodyPanel bodyPanel;
 
 	public SkinsScreen(Screen parent, Skins skins) {
 		super(Component.translatable("mosaicary.skins.title"));
@@ -289,6 +298,8 @@ public final class SkinsScreen extends Screen {
 		if (status == null) return null;
 		List<Component> said = freshLines(status);
 		if (detail()) {
+			// The body's panel has the card to itself.
+			if (bodyShown()) return null;
 			// In the card with the skin's description, just above its buttons: never over the figure.
 			Detail layout = detailLayout();
 			int x0 = layout.infoX0 + 6;
@@ -371,7 +382,7 @@ public final class SkinsScreen extends Screen {
 	 * description, above the card about live eyes when there is one; null for any other skin.
 	 */
 	private Notice seeThroughCard() {
-		if (!detail()) return null;
+		if (!detail() || bodyShown()) return null;
 		Skins.Look look = skins.look(entry());
 		if (look == null || !look.seeThrough()) return null;
 		Detail layout = detailLayout();
@@ -460,7 +471,7 @@ public final class SkinsScreen extends Screen {
 
 	/** The card in the panel with the skin's description, above any others there; null without one. */
 	private Notice accountCard() {
-		Component said = detail() ? accountSaid() : null;
+		Component said = detail() && !bodyShown() ? accountSaid() : null;
 		if (said == null) return null;
 		Detail layout = detailLayout();
 		Notice below = seeThroughCard();
@@ -479,7 +490,7 @@ public final class SkinsScreen extends Screen {
 	private void initAccount() {
 		shownAccount = accountKey();
 		Component said = accountSaid();
-		if (said == null) return;
+		if (said == null || bodyShown()) return;
 		Component label = accountButtonLabel();
 		Component tooltip = Component.translatable("mosaicary.account.in.tooltip");
 		if (detail()) {
@@ -508,7 +519,7 @@ public final class SkinsScreen extends Screen {
 
 	private void drawAccount(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
 		Component said = accountSaid();
-		if (said == null) return;
+		if (said == null || bodyShown()) return;
 		int textColour = Theme.TEXT;
 		if (detail()) {
 			Notice card = accountCard();
@@ -699,14 +710,22 @@ public final class SkinsScreen extends Screen {
 
 		int y = secondRowY();
 		int available = width - 2 * MARGIN - 4 * GAP;
+		// With the girls chosen, Female Gender Mod's window beside them; its room is taken from the
+		// whole row, so that the category keeps its name.
+		boolean girls = GenderMod.OFFERED && GIRLS.equals(query.category());
+		if (girls) available -= ROW + GAP;
 		int each = available / 5;
 		int x = MARGIN;
 		Dropdown<String> armsBox = new Dropdown<>(x, y, each, ROW, Icon.ARMS, Component.translatable("mosaicary.skins.filter.arms"),
 			arms, query.arms(), value -> setQuery(query.withArms(value)));
 		x += each + GAP;
 		Dropdown<String> categoryBox = new Dropdown<>(x, y, each, ROW, Icon.CATEGORY,
-			Component.translatable("mosaicary.skins.filter.category"), categories, query.category(),
-			value -> setQuery(query.withCategory(value)));
+			Component.translatable("mosaicary.skins.filter.category"), categories, query.category(), this::chooseCategory);
+		gender = null;
+		if (girls) {
+			gender = addRenderableWidget(genderButton(x + each + GAP, y));
+			x += ROW + GAP;
+		}
 		x += each + GAP;
 		Dropdown<Boolean> eyesBox = new Dropdown<>(x, y, each, ROW, Icon.EYES, Component.translatable("mosaicary.skins.filter.eyes"),
 			eyes, query.eyes(), value -> setQuery(query.withEyes(value)));
@@ -721,6 +740,142 @@ public final class SkinsScreen extends Screen {
 			addRenderableWidget(box);
 		}
 		addRenderableWidget(tagPicker);
+	}
+
+	/** The category beside which Female Gender Mod's window is offered. */
+	private static final String GIRLS = "girls";
+
+	/** A category chosen; the row is laid out anew when the girls come or go, for the button beside them. */
+	private void chooseCategory(String value) {
+		boolean wereGirls = GIRLS.equals(query.category());
+		setQuery(query.withCategory(value));
+		if (GenderMod.OFFERED && wereGirls != GIRLS.equals(value)) rebuildWidgets();
+	}
+
+	/** The button to Female Gender Mod's window while the girls are chosen, or null. */
+	private IconButton gender;
+
+	/** The button to Female Gender Mod's window, or null; for the game test. */
+	public IconButton genderButton() {
+		return gender;
+	}
+
+	/** Female Gender Mod's page, for all its loaders, where it is not installed. */
+	private static final String GENDER_PAGE = "https://modrinth.com/mod/female-gender";
+
+	/**
+	 * The button to Female Gender Mod's body, set on the skin worn last, or on the first of the
+	 * catalogue when none has been put on yet. Without the mod it opens the mod's page; greyed out,
+	 * with the reason on it, where this version of the mod is not one the wardrobe knows.
+	 */
+	private IconButton genderButton(int x, int y) {
+		if (!GenderMod.installed()) {
+			return IconButton.square(x, y, ROW, Icon.GENDER, Component.translatable("mosaicary.skins.gender.missing"),
+				() -> openUri(GENDER_PAGE));
+		}
+		IconButton button = IconButton.square(x, y, ROW, Icon.GENDER, Component.translatable("mosaicary.skins.gender"), this::openBodyOfWorn);
+		if (!GenderMod.available()) {
+			button.active = false;
+			button.tooltip(Component.translatable("mosaicary.skins.gender.unknown"));
+		}
+		return button;
+	}
+
+	/** The body's panel on the skin worn last, or on the first of the catalogue. */
+	private void openBodyOfWorn() {
+		Wardrobe.Entry worn = GenderMod.worn(skins.wardrobe());
+		if (worn != null) {
+			openEntry(worn);
+		} else {
+			List<SkinCard> cards = skins.shelf(query).cards;
+			if (cards.isEmpty()) return;
+			openCard(cards.get(0));
+		}
+		openBody();
+	}
+
+	private boolean bodyShown() {
+		return bodyPanel != null && detail();
+	}
+
+	/** Whether the body's panel shows in the open skin's card; for the game test and the screenshot run. */
+	public boolean bodyOpen() {
+		return bodyShown();
+	}
+
+	/**
+	 * Opens the body's panel for the open skin: on "My skins" the body kept with it, else the one the
+	 * player has in the mod now; in the menus the mod's own file is read for that.
+	 */
+	private void openBody() {
+		UUID me = minecraft.getUser().getProfileId();
+		JsonObject now = GenderMod.current(me);
+		JsonObject start = openEntry != null && openEntry.body != null ? openEntry.body : now;
+		bodyPanel = new BodyPanel(start, this::commitBody);
+		rebuildWidgets();
+	}
+
+	/**
+	 * Where what is set in the body's panel goes when it does not go into the mod at once, said in the
+	 * status strip: kept with a skin of "My skins" not worn, or waiting in the menus for a world.
+	 */
+	private Component bodyWhere() {
+		if (openEntry != null && !GenderMod.isWorn(skins.wardrobe(), openEntry)) return Component.translatable("mosaicary.body.where.skin");
+		return minecraft.player == null ? Component.translatable("mosaicary.body.where.menus") : null;
+	}
+
+	private void closeBody() {
+		if (bodyPanel != null) bodyPanel.flush();
+		bodyPanel = null;
+	}
+
+	/**
+	 * What is set in the body's panel: kept with the skin of "My skins" it is set on, and put on in the
+	 * mod as the player's own body when it is, on a skin of the catalogue or on the one worn.
+	 */
+	private void commitBody(JsonObject body) {
+		if (openEntry != null) {
+			skins.wardrobe().bodyOf(openEntry.key, body, System.currentTimeMillis());
+			if (!GenderMod.isWorn(skins.wardrobe(), openEntry)) return;
+		}
+		GenderMod.change(minecraft.getUser().getProfileId(), body);
+	}
+
+	/**
+	 * Female Gender Mod's breasts for the skin in the preview: on a girl of the catalogue by the
+	 * player's own body in the mod, in "My skins" by the body kept with the skin or else the
+	 * player's; none where the build does not work with the mod, without it, or switched off.
+	 */
+	private GenderFigure.Shape breastsShown() {
+		if (!GenderMod.OFFERED || !GenderMod.available()) return null;
+		// The body being set shows on any skin, whatever the settings say.
+		if (bodyShown()) return GenderFigure.Shape.of(bodyPanel.body());
+		if (!MosaicaryClient.instance().settings().genderOnFigures) return null;
+		if (openCard != null) {
+			return GIRLS.equals(openCard.category()) ? GenderFigure.Shape.of(GenderMod.current(minecraft.getUser().getProfileId())) : null;
+		}
+		if (openEntry == null) return null;
+		return breastsOf(openEntry, GenderFigure.Shape.of(GenderMod.current(minecraft.getUser().getProfileId())));
+	}
+
+	/**
+	 * The breasts of a skin of "My skins", as on the catalogue: only on the site's girls, by the body
+	 * kept with the skin or else the {@code player}'s; on a skin not from the site, which has no
+	 * category, by the body kept with it alone. Null for none, and while the category is not known yet.
+	 */
+	private GenderFigure.Shape breastsOf(Wardrobe.Entry entry, GenderFigure.Shape player) {
+		String category = skins.category(entry);
+		if (category == null) return null;
+		GenderFigure.Shape kept = entry.body != null ? GenderFigure.Shape.of(entry.body) : null;
+		if (entry.id != null) return GIRLS.equals(category) ? (entry.body != null ? kept : player) : null;
+		return kept;
+	}
+
+	/** The mod's own window, for what the body's panel does not have; the panel is read anew after it. */
+	private void openGenderWindow() {
+		closeBody();
+		Screen window = GenderMod.window(this, minecraft.getUser().getProfileId());
+		if (window != null) minecraft.gui.setScreen(window);
 	}
 
 	/** The wardrobe's second row: adding a file of one's own, and where the wardrobe is kept. */
@@ -767,8 +922,39 @@ public final class SkinsScreen extends Screen {
 				walking = !walking;
 				rebuildWidgets();
 			}).primary(walking));
+		// The outer layer in three dimensions, where 3D Skin Layers is installed: the same setting as in the settings.
+		layers = null;
+		if (SkinLayers3d.available()) {
+			Settings settings = MosaicaryClient.instance().settings();
+			layers = addRenderableWidget(IconButton.square(px + 2 * (ROW + GAP), py, ROW, Icon.CUBES,
+				Component.translatable("mosaicary.skins.preview.layers"), () -> {
+					settings.skinLayersOnFigures = !settings.skinLayersOnFigures;
+					MosaicaryClient.instance().saveSettings();
+					rebuildWidgets();
+				}).primary(settings.skinLayersOnFigures));
+		}
+		// Female Gender Mod's body, set in place of the description: lit while it is.
+		if (GenderMod.OFFERED && GenderMod.available()) {
+			int bx = px + (layers != null ? 3 : 2) * (ROW + GAP);
+			addRenderableWidget(IconButton.square(bx, py, ROW, Icon.GENDER, Component.translatable("mosaicary.body.open"), () -> {
+				if (bodyPanel != null) {
+					closeBody();
+					rebuildWidgets();
+				} else {
+					openBody();
+				}
+			}).primary(bodyShown()));
+		}
 		addRenderableWidget(IconButton.square(layout.previewX1 - ROW - 3, py, ROW, Icon.RESET_VIEW,
 			Component.translatable("mosaicary.skins.preview.reset"), this::resetView));
+
+		if (bodyShown()) {
+			Runnable window = minecraft.player != null ? this::openGenderWindow : null;
+			for (AbstractWidget widget : bodyPanel.widgets(layout.infoX0 + 6, layout.infoY0 + 6, layout.infoX1 - 6, this::rebuildWidgets, window)) {
+				addRenderableWidget(widget);
+			}
+			return;
+		}
 
 		// The actions along the bottom of the info card; Wear first and filled.
 		int y = layout.infoY1 - 6 - ROW;
@@ -839,6 +1025,7 @@ public final class SkinsScreen extends Screen {
 	}
 
 	public void openCard(SkinCard card) {
+		closeBody();
 		forgetLiveEyes();
 		openCard = card;
 		openEntry = null;
@@ -848,6 +1035,7 @@ public final class SkinsScreen extends Screen {
 	}
 
 	public void openEntry(Wardrobe.Entry entry) {
+		closeBody();
 		forgetLiveEyes();
 		openEntry = entry;
 		openCard = null;
@@ -857,6 +1045,7 @@ public final class SkinsScreen extends Screen {
 	}
 
 	public void closeDetail() {
+		closeBody();
 		forgetLiveEyes();
 		openCard = null;
 		openEntry = null;
@@ -932,6 +1121,7 @@ public final class SkinsScreen extends Screen {
 			say(Component.translatable("mosaicary.account.name_taken"), Theme.WARN);
 		}
 		freshReady = FreshMoves.status().ready();
+		if (bodyShown()) bodyPanel.tick();
 	}
 
 	@Override
@@ -1132,7 +1322,34 @@ public final class SkinsScreen extends Screen {
 		if (mouseX >= x0 && mouseX < x1 && mouseY >= y && mouseY < y + ROW) Theme.tooltip(graphics, font, more, mouseX, mouseY);
 	}
 
+	/** What the cards' pictures need beyond the site's, read once a frame (readCardExtras). */
+	private boolean cardCubes;
+	private boolean cardGender;
+	private GenderFigure.Shape cardBreasts;
+	private int[][][] cardLayouts;
+
+	/**
+	 * What the cards' pictures need this frame beyond the site's, as the player's other mods draw a
+	 * player: 3D Skin Layers' cubes where it is installed and on for the figures, and the player's
+	 * breasts in Female Gender Mod, by the same settings as the preview.
+	 */
+	private void readCardExtras() {
+		Settings settings = MosaicaryClient.instance().settings();
+		cardCubes = SkinLayers3d.available() && settings.skinLayersOnFigures;
+		UUID me = minecraft.getUser().getProfileId();
+		cardGender = GenderMod.OFFERED && GenderMod.available() && settings.genderOnFigures;
+		cardBreasts = cardGender ? GenderFigure.Shape.of(GenderMod.current(me)) : null;
+		cardLayouts = cardGender ? GenderMod.layouts(me) : null;
+	}
+
+	/** A card's extras with these breasts, or null when it is the site's picture as it is. */
+	private Skins.Extras extrasFor(GenderFigure.Shape breasts) {
+		if (!cardCubes && breasts == null) return null;
+		return new Skins.Extras(cardCubes, breasts, breasts == null ? null : cardLayouts);
+	}
+
 	private void drawCatalogue(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+		readCardExtras();
 		Grid grid = grid();
 		Skins.Shelf shelf = skins.shelf(query);
 		if (shelf.cards.isEmpty()) {
@@ -1214,12 +1431,16 @@ public final class SkinsScreen extends Screen {
 			hovered ? Theme.ACCENT : Theme.EDGE);
 		int pictureBottom = top + 1 + grid.pictureHeight();
 		graphics.fill(left + 1, top + 1, right - 1, pictureBottom, 0xFF273A49);
-		Skins.Picture picture = skins.picture(card);
+		// Drawn here with the other mods' look where they change it, the site's picture until that is ready.
+		Skins.Extras extras = extrasFor(GIRLS.equals(card.category()) ? cardBreasts : null);
+		Skins.Picture figure = extras != null ? skins.figure(card, extras) : null;
+		boolean drawnHere = figure != null && figure.state() == Skins.State.READY;
+		Skins.Picture picture = drawnHere ? figure : skins.picture(card);
 		if (picture.state() == Skins.State.READY) {
 			int side = Math.min(grid.cardWidth() - 2, grid.pictureHeight());
 			int x = left + 1 + (grid.cardWidth() - 2 - side) / 2;
 			int y = top + 1 + (grid.pictureHeight() - side) / 2;
-			Identifier moving = card.eyes() && freshReady ? skins.livePicture(card) : null;
+			Identifier moving = !drawnHere && card.eyes() && freshReady ? skins.livePicture(card) : null;
 			Theme.blit(graphics, moving != null ? moving : picture.texture(), x, y, 0, 0, side, side, picture.width(), picture.height(),
 				picture.width(), picture.height());
 		} else {
@@ -1259,6 +1480,7 @@ public final class SkinsScreen extends Screen {
 	private int pointerY;
 
 	private void drawWardrobe(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+		readCardExtras();
 		Grid grid = grid();
 		List<Wardrobe.Entry> entries = mine();
 		if (entries.isEmpty()) {
@@ -1299,12 +1521,17 @@ public final class SkinsScreen extends Screen {
 		// A skin from the site has the site's picture; anything else is drawn the same way here.
 		boolean fromSite = entry.id != null && entry.picture != null;
 		String version = fromSite && entry.picture.contains("?v=") ? entry.picture.substring(entry.picture.indexOf("?v=") + 3) : "0";
-		Skins.Picture picture = fromSite ? skins.picture(entry.id, entry.picture, version.replaceAll("[^0-9A-Za-z._-]", "_")) : skins.figure(entry);
+		Skins.Picture plain = fromSite ? skins.picture(entry.id, entry.picture, version.replaceAll("[^0-9A-Za-z._-]", "_")) : skins.figure(entry);
+		// With the other mods' look where they change it, as the preview draws it: the body kept with the skin, else the player's.
+		Skins.Extras extras = extrasFor(!cardGender ? null : breastsOf(entry, cardBreasts));
+		Skins.Picture figure = extras != null ? skins.figure(entry, extras) : null;
+		boolean drawnHere = figure != null && figure.state() == Skins.State.READY;
+		Skins.Picture picture = drawnHere ? figure : plain;
 		if (picture.state() == Skins.State.READY) {
 			int side = Math.min(grid.cardWidth() - 2, grid.pictureHeight());
 			int x = left + 1 + (grid.cardWidth() - 2 - side) / 2;
 			int y = top + 1 + (grid.pictureHeight() - side) / 2;
-			Skins.Look seen = fromSite && freshReady ? skins.look(entry) : null;
+			Skins.Look seen = fromSite && freshReady && !drawnHere ? skins.look(entry) : null;
 			Identifier moving = seen != null && seen.eyes() ? skins.livePicture(entry) : null;
 			Theme.blit(graphics, moving != null ? moving : picture.texture(), x, y, 0, 0, side, side, picture.width(), picture.height(),
 				picture.width(), picture.height());
@@ -1317,7 +1544,13 @@ public final class SkinsScreen extends Screen {
 			Icons.draw(graphics, Icon.WEAR, badgeX, top + 3, Theme.ACCENT);
 			badgeX -= Icons.SIZE;
 		}
-		seeThroughMark(graphics, skins.look(entry), badgeX, top + 3);
+		// Eyes that come alive, read off the skin's file as on the catalogue.
+		Skins.Look look = skins.look(entry);
+		if (look != null && look.eyes()) {
+			Icons.draw(graphics, Icon.EYES, badgeX, top + 3, 0xE0FFFFFF);
+			badgeX -= Icons.SIZE;
+		}
+		seeThroughMark(graphics, look, badgeX, top + 3);
 		int textLeft = left + 5;
 		int textWidth = grid.cardWidth() - 10;
 		String name = entry.name == null || entry.name.isBlank() ? Component.translatable("mosaicary.skins.mine.unnamed").getString() : entry.name;
@@ -1367,6 +1600,10 @@ public final class SkinsScreen extends Screen {
 			icon = Icon.LOADING;
 			tint = Theme.ACCENT;
 			said = Component.translatable("mosaicary.skins.action.wearing.tooltip");
+		} else if (bodyShown() && bodyWhere() != null) {
+			icon = Icon.GENDER;
+			tint = Theme.TEXT_DIM;
+			said = bodyWhere();
 		} else if (tab == Tab.WARDROBE && !detail()) {
 			icon = Icon.WARDROBE;
 			tint = Theme.TEXT_DIM;
@@ -1424,7 +1661,9 @@ public final class SkinsScreen extends Screen {
 		Skins.Texture texture = openCard != null ? skins.texture(openCard) : skins.texture(entry);
 		if (texture.ready()) {
 			PlayerPose.Figure model = texture.model() == PlayerModelType.SLIM ? slimModel : wideModel;
-			pose(model, (System.nanoTime() - opened) / 1e9f);
+			float shownSeconds = stoppedAt != null ? stoppedAt : (System.nanoTime() - opened) / 1e9f;
+			pose(model, shownSeconds);
+			PlayerPose.breasts(model, breastsShown(), shownSeconds, walking, rotationY);
 			// The eyes move when the game would move them too: the pack and its mods there and on.
 			if (liveEyesOf != texture) {
 				forgetLiveEyes();
@@ -1453,7 +1692,7 @@ public final class SkinsScreen extends Screen {
 			// Through locals, as the patterns before 1.20 miss a call reading a record's component (ClientPatterns).
 			int clipY0 = layout.previewY0 + 1, clipY1 = layout.previewY1 - 1;
 			graphics.enableScissor(cardX0, clipY0, cardX1, clipY1);
-			PlayerPose.draw(graphics, model, moving ? liveEyes.frame() : texture.texture(), scale, rotationX, rotationY, pivot,
+			PlayerPose.draw(graphics, model, moving ? liveEyes.frame() : texture.texture(), texture.pixels(), scale, rotationX, rotationY, pivot,
 				centre - half, boxTop, centre + half, boxBottom);
 			graphics.disableScissor();
 		} else {
@@ -1470,6 +1709,7 @@ public final class SkinsScreen extends Screen {
 
 	@Override
 	public void removed() {
+		if (bodyPanel != null) bodyPanel.flush();
 		forgetLiveEyes();
 		super.removed();
 	}
@@ -1492,6 +1732,10 @@ public final class SkinsScreen extends Screen {
 
 	private void drawInfo(GuiGraphicsExtractor graphics, Detail layout, Wardrobe.Entry entry, int mouseX, int mouseY) {
 		Theme.card(graphics, layout.infoX0, layout.infoY0, layout.infoX1, layout.infoY1);
+		if (bodyShown()) {
+			bodyPanel.draw(graphics, font, layout.infoX0 + 6, layout.infoX1 - 6);
+			return;
+		}
 		int x = layout.infoX0 + 6;
 		int width = layout.infoX1 - layout.infoX0 - 12;
 		int y = layout.infoY0 + 6;
@@ -1837,6 +2081,17 @@ public final class SkinsScreen extends Screen {
 		for (SkinCard card : skins.shelf(query).cards) if (skins.look(card) == null) return false;
 		return true;
 	}
+
+	/** The preview's button for 3D Skin Layers, there only with the mod. */
+	private IconButton layers;
+
+	/** The preview's button for 3D Skin Layers, or null; for the game test. */
+	public IconButton layersButton() {
+		return layers;
+	}
+
+	/** The preview's clock stopped at this many seconds since it opened, or null; for the game test. */
+	public static Float stoppedAt;
 
 	/** Turns the preview; for the screenshot run. */
 	public void setView(float rotationX, float rotationY) {

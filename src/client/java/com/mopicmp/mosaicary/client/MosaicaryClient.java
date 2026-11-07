@@ -7,6 +7,8 @@ import java.util.List;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mopicmp.mosaicary.Mosaicary;
 import com.mopicmp.mosaicary.client.build.Builds;
+import com.mopicmp.mosaicary.client.compat.GenderBreasts;
+import com.mopicmp.mosaicary.client.compat.GenderMod;
 import com.mopicmp.mosaicary.client.platform.ClientPlatform;
 import com.mopicmp.mosaicary.client.site.Settings;
 import com.mopicmp.mosaicary.client.site.SiteClient;
@@ -208,6 +210,8 @@ public final class MosaicaryClient implements ClientModInitializer {
 		relay.skins(skins);
 		wardrobeSync = new WardrobeSync(skins, relay, settings, this::saveSettings);
 		skins.signedIn(() -> wardrobeSync.on(WardrobeSync.Where.ACCOUNT));
+		// Female Gender Mod's body goes with the skin: kept with the one taken off, put on with the new one.
+		skins.onWearing(entry -> GenderMod.wearing(skins.wardrobe(), entry, Minecraft.getInstance().getUser().getProfileId()));
 		skins.onApplied(applied -> {
 			// Worn through the site, as Mojang would not take it: nothing to tell a server about.
 			if (applied.mojang() == null) {
@@ -269,6 +273,8 @@ public final class MosaicaryClient implements ClientModInitializer {
 			if (++ticks % 20 == 0) watchSettings();
 			relay.tick(minecraft);
 			wardrobeSync.tick();
+			if (GenderMod.available()) GenderMod.tick(skins.wardrobe(), minecraft.getUser().getProfileId());
+			GenderBreasts.tick();
 			Screen open = minecraft.gui.screen();
 			if (open instanceof TitleScreen || open instanceof PauseScreen || open instanceof SkinsScreen) skins.refreshOwn(false);
 			while (openKey.consumeClick()) {

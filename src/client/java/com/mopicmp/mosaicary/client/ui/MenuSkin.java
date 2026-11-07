@@ -6,12 +6,15 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 import com.mopicmp.mosaicary.client.MosaicaryClient;
+import com.mopicmp.mosaicary.client.compat.GenderFigure;
+import com.mopicmp.mosaicary.client.compat.GenderMod;
 import com.mopicmp.mosaicary.client.site.Settings;
 import com.mopicmp.mosaicary.client.skins.FreshMoves;
 import com.mopicmp.mosaicary.client.skins.LiveEyes;
 import com.mopicmp.mosaicary.client.skins.Skins;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -41,8 +44,9 @@ import net.minecraft.world.entity.player.PlayerSkin;
 /**
  * The player's own skin standing to the right of the main menu and of the pause menu, as the
  * Bedrock edition shows its character: the game's player model, swaying a little, the head
- * following the pointer. No name under it: the menu is the player's own, and a card there only
- * covers the background. Dragging turns it; a click opens the wardrobe.
+ * following the pointer, and the player's name over it as the game shows it over a player in the
+ * world (no card under it, which only covered the background). Dragging turns it; a click opens
+ * the wardrobe.
  *
  * <h2>Which skin</h2>
  *
@@ -62,9 +66,9 @@ import net.minecraft.world.entity.player.PlayerSkin;
  *
  * <h2>Switched off, moved, resized</h2>
  *
- * {@code menuSkin}, {@code menuSkinX}, {@code menuSkinY} and {@code menuSkinSize} in the
- * settings, and {@code pauseSkin} and the rest for the pause menu, each menu's figure placed on
- * its own. Read on every frame, so a change, in the wardrobe's settings, through Mod Menu or in
+ * {@code menuSkin}, {@code menuSkinX}, {@code menuSkinY}, {@code menuSkinSize} and
+ * {@code menuSkinName} (the name over it) in the settings, and {@code pauseSkin} and the rest for
+ * the pause menu, each menu's figure placed on its own. Read on every frame, so a change, in the wardrobe's settings, through Mod Menu or in
  * the settings file, shows on the open menu at once.
  */
 // Before 1.19.3 a widget has no getters for its place, no isHovered and no tooltip (PlacedWidget).
@@ -92,6 +96,10 @@ public final class MenuSkin extends AbstractWidget {
 
 		public int size(Settings settings) {
 			return this == MAIN ? settings.menuSkinSize : settings.pauseSkinSize;
+		}
+
+		public boolean named(Settings settings) {
+			return this == MAIN ? settings.menuSkinName : settings.pauseSkinName;
 		}
 	}
 
@@ -370,11 +378,90 @@ public final class MenuSkin extends AbstractWidget {
 		PlayerPose.look(model, lastYaw, (float) Math.atan((mouseY - eyes) / 70f) * 0.6f);
 
 		float scale = 0.97f * getHeight() / 2.125f;
-		PlayerPose.draw(graphics, model, textureNow(worn), scale, -5, 20 + turned, -1.0625f, getX(), getY(), getRight(), getBottom());
+		// Female Gender Mod's breasts by the player's own body in it, the skin worn being the player's.
+		boolean breasts = GenderMod.OFFERED && GenderMod.available() && MosaicaryClient.instance().settings().genderOnFigures;
+		PlayerPose.breasts(model, breasts ? GenderFigure.Shape.of(GenderMod.current(Minecraft.getInstance().getUser().getProfileId())) : null,
+			seconds, false, 20 + turned);
+		PlayerPose.draw(graphics, model, textureNow(worn), worn.pixels(), scale, TILT, 20 + turned, -PIVOT, getX(), getY(), getRight(), getBottom());
+		nameBox = beside.named(MosaicaryClient.instance().settings()) ? nameTag(graphics, scale) : null;
 
 		if (isHovered() && !preview) {
 			Theme.tooltip(graphics, Minecraft.getInstance().font, Component.translatable("mosaicary.menu_skin.tooltip"), mouseX, mouseY);
 		}
+	}
+
+	/** The figure is seen a little from above: tilted by this many degrees about a height this many blocks of the model under the box's top. */
+	private static final float TILT = -5;
+	private static final float PIVOT = 1.0625f;
+
+	/** Where PlayerPose.draw puts the ground under the feet, in blocks of the model over the box's bottom. */
+	private static final float GROUND = 0.1f;
+
+	/** How high the game puts a player's name in the world, in blocks over the ground: half a block over the player's 1.8. */
+	private static final float NAME_HEIGHT = 2.3f;
+
+	/** One pixel of a name's letters in the world, in blocks. */
+	private static final float NAME_PIXEL = 0.025f;
+
+	/** How much smaller than its model the game draws a player in the world; the figure is the model as it is. */
+	private static final float PLAYER_SCALE = 0.9375f;
+
+	private float[] nameBox;
+
+	/**
+	 * The player's name over the figure, as the game shows it over a player in the world: white
+	 * letters with no shadow on the text background chosen in the options, as high over the
+	 * figure's ground and as large against it as over a player. One pixel of a letter is a whole
+	 * number of the screen's pixels, the nearest to that size, so the name is as sharp as the menu's
+	 * own words. Kept on the screen when the figure stands at its top or edge. Gives the
+	 * background's box, in GUI units.
+	 */
+	private float[] nameTag(GuiGraphicsExtractor graphics, float scale) {
+		Minecraft minecraft = Minecraft.getInstance();
+		Font font = minecraft.font;
+		String name = minecraft.getUser().getName();
+		float gui = (float) minecraft.getWindow().getGuiScale();
+		float pixel = Math.max(1, Math.round(NAME_PIXEL / PLAYER_SCALE * scale * gui)) / gui;
+		// The letters start half their width to the left of the middle; the background reaches one
+		// pixel further out on the left and above, and down to the line's height, as the game's font draws it.
+		int width = font.width(name);
+		int left = -width / 2;
+		// The top of the letters, tilted with the figure about the same height.
+		float pivot = getY() + PIVOT * scale;
+		float overPivot = getBottom() - GROUND * scale - NAME_HEIGHT / PLAYER_SCALE * scale - pivot;
+		float x = getX() + getWidth() / 2f;
+		float y = pivot + overPivot * (float) Math.cos(Math.toRadians(TILT));
+		x = Math.max(2 - (left - 1) * pixel, Math.min(screen.width - 2 - (left + width) * pixel, x));
+		y = Math.max(2 + pixel, y);
+		x = Math.round(x * gui) / gui;
+		y = Math.round(y * gui) / gui;
+
+		int background = minecraft.options.getBackgroundColor(0.25f);
+		// From 1.21.6 a screen is drawn in two dimensions, with a matrix of its own.
+		//#if MC>=12111
+		org.joml.Matrix3x2fStack pose = graphics.pose();
+		pose.pushMatrix();
+		pose.translate(x, y);
+		pose.scale(pixel, pixel);
+		//#else
+		//$$ com.mojang.blaze3d.vertex.PoseStack pose = graphics.pose();
+		//$$ pose.pushPose();
+		//$$ pose.translate(x, y, 0);
+		//$$ pose.scale(pixel, pixel, 1);
+		//#endif
+		graphics.fill(left - 1, -1, left + width, font.lineHeight, background);
+		graphics.text(font, name, left, 0, 0xFFFFFFFF, false);
+		//#if MC>=12111
+		pose.popMatrix();
+		//#else
+		//$$ pose.popPose();
+		//#endif
+		return new float[] { x + (left - 1) * pixel, y - pixel, x + (left + width) * pixel, y + font.lineHeight * pixel };
+	}
+
+	/** The box of the name over the figure last drawn, in GUI units, or null with the name switched off; for the game test. */
+	public float[] nameBox() {
+		return nameBox;
 	}
 
 	private float lastYaw;

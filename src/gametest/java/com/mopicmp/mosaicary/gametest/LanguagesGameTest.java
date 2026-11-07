@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mopicmp.mosaicary.client.MosaicaryClient;
+import com.mopicmp.mosaicary.client.compat.GenderMod;
 import com.mopicmp.mosaicary.client.ui.ConsentScreen;
 import com.mopicmp.mosaicary.client.ui.MenuSkin;
 import com.mopicmp.mosaicary.client.ui.MenuSkinScreen;
@@ -16,6 +17,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
@@ -24,7 +26,8 @@ import net.minecraft.network.chat.Component;
 /**
  * Every screen in every language at the narrowest common layout: a screenshot of each, and a line
  * for each widget off the screen or on top of another. Runs only with {@code -PtestLanguages},
- * as the screenshots are for reading rather than for the test to judge.
+ * as the screenshots are for reading rather than for the test to judge; with a list after it
+ * ({@code -PtestLanguages=fr_fr,pl_pl}), only those languages.
  */
 public final class LanguagesGameTest implements FabricClientGameTest {
 
@@ -34,6 +37,7 @@ public final class LanguagesGameTest implements FabricClientGameTest {
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
+		if (Steps.skipped(this)) return;
 		if (System.getProperty("mosaicary.testLanguages") == null) return;
 		context.getInput().resizeWindow(1280, 720);
 		context.waitForScreen(TitleScreen.class);
@@ -42,7 +46,9 @@ public final class LanguagesGameTest implements FabricClientGameTest {
 			minecraft.resizeGui();
 		});
 		context.waitTicks(10);
-		for (String code : LANGUAGES) {
+		String asked = System.getProperty("mosaicary.testLanguages");
+		List<String> only = asked.equals("true") ? List.of(LANGUAGES) : List.of(asked.split(","));
+		for (String code : only) {
 			select(context, code);
 			walk(context, code);
 		}
@@ -74,6 +80,23 @@ public final class LanguagesGameTest implements FabricClientGameTest {
 		context.waitFor((Minecraft minecraft) -> minecraft.gui.screen() instanceof SkinsScreen screen && screen.openCard() != null, 100);
 		context.waitTicks(20);
 		snap(context, code, "2-skin");
+		// Female Gender Mod's body in place of the description, where the run has the mod.
+		if (context.computeOnClient((Minecraft minecraft) -> GenderMod.OFFERED && GenderMod.available())) {
+			double[] body = context.computeOnClient((Minecraft minecraft) -> {
+				String name = Component.translatable("mosaicary.body.open").getString();
+				for (AbstractWidget widget : Screens.getWidgets(minecraft.gui.screen())) {
+					if (widget.getMessage().getString().equals(name)) {
+						return new double[] { widget.getX() + widget.getWidth() / 2.0, widget.getY() + widget.getHeight() / 2.0 };
+					}
+				}
+				throw new AssertionError("No button to the body on the skin's card");
+			});
+			Steps.click(context, body[0], body[1]);
+			context.waitTicks(10);
+			snap(context, code, "2b-body");
+			Steps.click(context, body[0], body[1]);
+			context.waitTicks(5);
+		}
 		context.getInput().pressKey(InputConstants.KEY_ESCAPE);
 		context.waitTicks(5);
 
@@ -99,6 +122,9 @@ public final class LanguagesGameTest implements FabricClientGameTest {
 		context.runOnClient((Minecraft minecraft) -> { minecraft.gui.setScreen(new MenuSkinScreen(new TitleScreen(), MenuSkin.Beside.MAIN)); });
 		context.waitTicks(5);
 		snap(context, code, "7-place");
+		if (context.computeOnClient((Minecraft minecraft) -> ((MenuSkinScreen) minecraft.gui.screen()).nameLabelCut())) {
+			System.out.println("LANG " + code + " 7-place: the name row's words are cut short");
+		}
 	}
 
 	private static void select(ClientGameTestContext context, String code) {
@@ -144,6 +170,10 @@ public final class LanguagesGameTest implements FabricClientGameTest {
 			AbstractWidget one = widgets.get(i);
 			if (one.getX() < 0 || one.getX() + one.getWidth() > screen.width || one.getY() < 0 || one.getY() + one.getHeight() > screen.height) {
 				said.add("off the screen: " + describe(one));
+			}
+			// A slider's words are drawn inside it, with a few pixels at each end.
+			if (one instanceof AbstractSliderButton && minecraft.font.width(one.getMessage()) > one.getWidth() - 8) {
+				said.add("words wider than it: " + describe(one));
 			}
 			for (int j = i + 1; j < widgets.size(); j++) {
 				AbstractWidget other = widgets.get(j);

@@ -9,6 +9,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import com.mopicmp.mosaicary.client.MosaicaryClient;
+import com.mopicmp.mosaicary.client.compat.GenderBreasts;
 import com.mopicmp.mosaicary.client.wear.Wearing;
 
 import net.minecraft.client.renderer.entity.player.AvatarRenderer;
@@ -35,6 +36,8 @@ public abstract class AvatarRendererMixin {
 		at = @At("TAIL"))
 	//#enable-remap
 	private void mosaicary$extractWorn(Avatar entity, AvatarRenderState state, float partialTicks, CallbackInfo info) {
+		// The jacket cut for Female Gender Mod's breasts is set again as they are submitted, if they are.
+		((GenderBreasts.Carrier) state).mosaicary$jacket(null);
 		MosaicaryClient client = MosaicaryClient.instance();
 		// With the model shelf hidden, no model is drawn on anyone.
 		if (client != null && MosaicaryClient.MODELS) client.wearing().extract(entity, state, partialTicks);

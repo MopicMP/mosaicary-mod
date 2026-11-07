@@ -9,6 +9,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
+import com.google.gson.JsonObject;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -139,5 +141,73 @@ class WardrobeTest {
 		wardrobe.add(site("bbbbbbbbbbbb", 2));
 		wardrobe.worn(site("aaaaaaaaaaaa", 1), HASH, "classic", 5);
 		assertEquals("site:aaaaaaaaaaaa", wardrobe.shown().get(0).key);
+	}
+
+	private static JsonObject body(String gender, double bust) {
+		JsonObject body = new JsonObject();
+		body.addProperty("gender", gender);
+		body.addProperty("bust_size", bust);
+		return body;
+	}
+
+	@Test
+	void aBodyIsKeptWithItsSkinAndTravels(@TempDir Path folder) {
+		long now = System.currentTimeMillis();
+		Wardrobe wardrobe = new Wardrobe(folder, "0f2b3c9a-7e3d-4b8e-9a1c-2d3e4f5a6b7c");
+		wardrobe.add(site("aaaaaaaaaaaa", now - 1000));
+		wardrobe.bodyOf("site:aaaaaaaaaaaa", body("female", 0.6), now);
+		assertEquals(now, wardrobe.get("site:aaaaaaaaaaaa").changed);
+		// The same body again is no change, so nothing is sent for it; also as the float the mod holds.
+		JsonObject asFloat = new JsonObject();
+		asFloat.addProperty("gender", "female");
+		asFloat.addProperty("bust_size", 0.6f);
+		wardrobe.bodyOf("site:aaaaaaaaaaaa", asFloat, now + 5);
+		assertEquals(now, wardrobe.get("site:aaaaaaaaaaaa").changed);
+		// Not kept, no body.
+		wardrobe.bodyOf("site:bbbbbbbbbbbb", body("male", 0), now);
+		assertNull(wardrobe.get("site:bbbbbbbbbbbb"));
+		Wardrobe again = new Wardrobe(folder, "0f2b3c9a-7e3d-4b8e-9a1c-2d3e4f5a6b7c");
+		assertEquals(body("female", 0.6), again.get("site:aaaaaaaaaaaa").body);
+		again.bodyOf("site:aaaaaaaaaaaa", asFloat, now + 10);
+		assertEquals(now, again.get("site:aaaaaaaaaaaa").changed);
+		Wardrobe.Entry sent = find(Wardrobe.fromJson(again.travellingJson()), "site:aaaaaaaaaaaa");
+		assertEquals(body("female", 0.6), sent.body);
+	}
+
+	@Test
+	void aCopyThatDoesNotKnowBodiesDoesNotLoseOne() {
+		Wardrobe.Entry withBody = site("aaaaaaaaaaaa", 100);
+		withBody.body = body("female", 0.6);
+		// Worn again later in an older mod, which sends the entry without a body.
+		Wardrobe.Entry later = site("aaaaaaaaaaaa", 200);
+		assertEquals(body("female", 0.6), find(Wardrobe.merge(List.of(withBody), List.of(later), 300), "site:aaaaaaaaaaaa").body);
+		assertEquals(body("female", 0.6), find(Wardrobe.merge(List.of(later), List.of(withBody), 300), "site:aaaaaaaaaaaa").body);
+		// A later body wins over an earlier one.
+		Wardrobe.Entry changed = site("aaaaaaaaaaaa", 300);
+		changed.body = body("male", 0);
+		assertEquals(body("male", 0), find(Wardrobe.merge(List.of(withBody), List.of(changed), 400), "site:aaaaaaaaaaaa").body);
+	}
+
+	@Test
+	void aBodyKeepsOnlyWhatIsAboutTheBody() {
+		List<Wardrobe.Entry> sent = Wardrobe.fromJson("[{\"key\":\"site:aaaaaaaaaaaa\",\"id\":\"aaaaaaaaaaaa\",\"changed\":1,\"body\":"
+			+ "{\"gender\":\"FEMALE\",\"bust_size\":7,\"breast_physics\":\"yes\",\"breasts_uniboob\":false,"
+			+ "\"hurt_sounds\":true,\"voice_pitch\":1.1}}]");
+		JsonObject kept = find(Wardrobe.merge(List.of(), sent, 2), "site:aaaaaaaaaaaa").body;
+		JsonObject expected = new JsonObject();
+		expected.addProperty("gender", "female");
+		// Past the mod's own limits: kept, as mods such as Over The Limits lift them.
+		expected.addProperty("bust_size", 7.0);
+		expected.addProperty("voice_pitch", 1.1);
+		expected.addProperty("breasts_uniboob", false);
+		assertEquals(expected, kept);
+		// A number that is no setting is dropped.
+		JsonObject broken = new JsonObject();
+		broken.addProperty("bust_size", 1e9);
+		assertNull(Body.clean(broken));
+		// Nothing of a body left: none at all.
+		JsonObject nothing = new JsonObject();
+		nothing.addProperty("hurt_sounds", true);
+		assertNull(Body.clean(nothing));
 	}
 }

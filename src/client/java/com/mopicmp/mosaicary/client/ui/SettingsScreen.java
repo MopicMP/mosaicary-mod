@@ -1,6 +1,8 @@
 package com.mopicmp.mosaicary.client.ui;
 
 import com.mopicmp.mosaicary.client.MosaicaryClient;
+import com.mopicmp.mosaicary.client.compat.GenderMod;
+import com.mopicmp.mosaicary.client.compat.SkinLayers3d;
 import com.mopicmp.mosaicary.client.site.Settings;
 import com.mopicmp.mosaicary.client.skins.WardrobeSync;
 import com.mopicmp.mosaicary.client.wear.WearRelay;
@@ -27,16 +29,18 @@ public final class SettingsScreen extends Screen {
 
 	private static final int WIDTH = 320;
 	private static final int ROW = 20;
-	private static final int CARD = 24;
-	private static final int SPACE = 3;
-	private static final int ROWS = 7;
+	// Eight rows of 23 with 2 between fit the smallest screen the game lays out, 240 high.
+	private static final int CARD = 23;
+	private static final int SPACE = 2;
+	private static final int ROWS = 8;
 	private static final int SHARING = 0;
 	private static final int STATUS = 1;
 	private static final int ON_SITE = 2;
 	private static final int ACCOUNT = 3;
 	private static final int MENU_SKIN = 4;
 	private static final int PAUSE_SKIN = 5;
-	private static final int DATA = 6;
+	private static final int FIGURES = 6;
+	private static final int DATA = 7;
 
 	private final Screen parent;
 	private IconButton shareOn;
@@ -48,6 +52,8 @@ public final class SettingsScreen extends Screen {
 	private IconButton menuOff;
 	private IconButton pauseOn;
 	private IconButton pauseOff;
+	private IconButton layersButton;
+	private IconButton genderButton;
 	private IconButton deleteButton;
 	private WearRelay.Deleted deleted;
 	private String shownLink;
@@ -129,6 +135,30 @@ public final class SettingsScreen extends Screen {
 		addRenderableWidget(IconButton.square(pauseOn.getX() - 4 - ROW, controlY(PAUSE_SKIN), ROW, Icon.SIZE,
 			Component.translatable("mosaicary.settings.pause_skin.place"),
 			() -> openPlace(MenuSkin.Beside.PAUSE)));
+
+		// The figures the mod draws, with other mods: the outer layer in three dimensions with 3D Skin Layers.
+		layersButton = IconButton.square(right - 6 - ROW, controlY(FIGURES), ROW, Icon.CUBES,
+			Component.translatable("mosaicary.skins.preview.layers"), this::toggleLayers);
+		addRenderableWidget(layersButton);
+		if (SkinLayers3d.available()) {
+			layersButton.primary(settings.skinLayersOnFigures);
+		} else {
+			layersButton.active = false;
+			layersButton.tooltip(Component.translatable("mosaicary.settings.figures.layers.missing"));
+		}
+
+		// And Female Gender Mod's breasts, where this build works with it at all.
+		if (GenderMod.OFFERED) {
+			genderButton = IconButton.square(right - 6 - 2 * ROW - 4, controlY(FIGURES), ROW, Icon.GENDER,
+				Component.translatable("mosaicary.settings.figures.gender"), this::toggleGender);
+			addRenderableWidget(genderButton);
+			if (GenderMod.available()) {
+				genderButton.primary(settings.genderOnFigures);
+			} else {
+				genderButton.active = false;
+				genderButton.tooltip(Component.translatable("mosaicary.settings.figures.gender.missing"));
+			}
+		}
 
 		// Deleting one's data on the site, which also switches sharing and the wardrobe there off.
 		Component delete = Component.translatable("mosaicary.settings.delete");
@@ -232,6 +262,20 @@ public final class SettingsScreen extends Screen {
 		menuOff.primary(!on);
 	}
 
+	private void toggleGender() {
+		Settings settings = MosaicaryClient.instance().settings();
+		settings.genderOnFigures = !settings.genderOnFigures;
+		MosaicaryClient.instance().saveSettings();
+		genderButton.primary(settings.genderOnFigures);
+	}
+
+	private void toggleLayers() {
+		Settings settings = MosaicaryClient.instance().settings();
+		settings.skinLayersOnFigures = !settings.skinLayersOnFigures;
+		MosaicaryClient.instance().saveSettings();
+		layersButton.primary(settings.skinLayersOnFigures);
+	}
+
 	private void setPauseSkin(boolean on) {
 		MosaicaryClient.instance().settings().pauseSkin = on;
 		MosaicaryClient.instance().saveSettings();
@@ -305,6 +349,8 @@ public final class SettingsScreen extends Screen {
 			Component.translatable("mosaicary.settings.menu_skin.tooltip"));
 		row(graphics, PAUSE_SKIN, Icon.OWN_SKIN, Component.translatable("mosaicary.settings.pause_skin"), mouseX, mouseY,
 			Component.translatable("mosaicary.settings.pause_skin.tooltip"));
+		row(graphics, FIGURES, Icon.OWN_SKIN, Component.translatable("mosaicary.settings.figures"), mouseX, mouseY,
+			Component.translatable("mosaicary.settings.figures.tooltip"));
 		row(graphics, DATA, Icon.DELETE, Component.translatable("mosaicary.settings.data"), mouseX, mouseY,
 			Component.translatable("mosaicary.settings.data.tooltip"));
 		super.extractRenderState(graphics, mouseX, mouseY, a);

@@ -69,6 +69,11 @@ public class IconButton extends AbstractWidget {
 		return this;
 	}
 
+	/** Pressed as a click would press it; for the screenshot run. */
+	public void press() {
+		if (active) onPress.run();
+	}
+
 	/** Drawn filled with the accent colour, for the main action of a card. */
 	public IconButton primary(boolean primary) {
 		this.primary = primary;

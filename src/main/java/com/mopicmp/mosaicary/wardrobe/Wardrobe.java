@@ -14,6 +14,7 @@ import java.util.Objects;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 
 /**
@@ -71,6 +72,8 @@ public final class Wardrobe {
 		public long worn;
 		/** Taken out of the wardrobe; kept as a mark. */
 		public boolean gone;
+		/** The body it was last worn with in Female Gender Mod ({@link Body}), or null. */
+		public JsonObject body;
 
 		public static Entry ofSite(String id, String name, String arms, String picture, long now) {
 			Entry entry = new Entry();
@@ -139,6 +142,7 @@ public final class Wardrobe {
 			out.changed = changed;
 			out.worn = worn;
 			out.gone = gone;
+			out.body = Body.copy(body);
 			return out;
 		}
 
@@ -306,6 +310,16 @@ public final class Wardrobe {
 		changed();
 	}
 
+	/** Records the body a kept skin was worn with; nothing happens for a skin not kept, or the same body. */
+	public void bodyOf(String key, JsonObject body, long now) {
+		Entry known = get(key);
+		JsonObject clean = Body.clean(body);
+		if (known == null || clean == null || clean.equals(known.body)) return;
+		known.body = clean;
+		known.changed = now;
+		changed();
+	}
+
 	/** Takes in what another copy holds. Returns whether anything here changed. */
 	public boolean mergeIn(List<Entry> theirs, long now) {
 		List<Entry> merged = merge(new ArrayList<>(entries.values()), theirs, now);
@@ -341,11 +355,14 @@ public final class Wardrobe {
 				Entry known = out.get(entry.key);
 				if (known == null || wins(entry, known)) {
 					Entry chosen = entry.copy();
-					// What either side learnt about the skin stays, whichever side won.
+					chosen.body = Body.clean(chosen.body);
+					// What either side learnt about the skin stays, whichever side won. A copy that
+					// does not know bodies (an older mod, the site's pages) does not lose one.
 					if (known != null) {
 						if (chosen.texture == null) chosen.texture = known.texture;
 						if (chosen.file == null) chosen.file = known.file;
 						if (chosen.picture == null) chosen.picture = known.picture;
+						if (chosen.body == null) chosen.body = known.body;
 						chosen.worn = Math.max(chosen.worn, known.worn);
 					}
 					out.put(entry.key, chosen);
@@ -353,6 +370,7 @@ public final class Wardrobe {
 					if (known.texture == null) known.texture = entry.texture;
 					if (known.file == null) known.file = entry.file;
 					if (known.picture == null) known.picture = entry.picture;
+					if (known.body == null) known.body = Body.clean(entry.body);
 					known.worn = Math.max(known.worn, entry.worn);
 				}
 			}
@@ -370,7 +388,7 @@ public final class Wardrobe {
 	private static boolean sameEntry(Entry a, Entry b) {
 		return a.changed == b.changed && a.gone == b.gone && a.worn == b.worn && Objects.equals(a.texture, b.texture)
 			&& Objects.equals(a.name, b.name) && Objects.equals(a.arms, b.arms) && Objects.equals(a.file, b.file)
-			&& Objects.equals(a.picture, b.picture);
+			&& Objects.equals(a.picture, b.picture) && Objects.equals(a.body, b.body);
 	}
 
 	/** Keeps at most {@link #MOST} entries: the oldest never worn go first, then the oldest worn. */

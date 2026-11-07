@@ -20,6 +20,7 @@ import java.util.function.Consumer;
 import com.google.gson.JsonParser;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mopicmp.mosaicary.Mosaicary;
+import com.mopicmp.mosaicary.client.compat.GenderFigure;
 import com.mopicmp.mosaicary.client.render.Pictures;
 import com.mopicmp.mosaicary.client.site.SiteClient;
 import com.mopicmp.mosaicary.wardrobe.Wardrobe;
@@ -248,7 +249,26 @@ public final class Skins {
 	 * known only by its hash: drawn here from the skin's file ({@link SkinFigure}), once.
 	 */
 	public Picture figure(Wardrobe.Entry entry) {
-		String key = "figure-" + entry.key;
+		return figure(entry, null);
+	}
+
+	/**
+	 * What a card's picture has beyond the site's, as the player's other mods draw a player: 3D Skin
+	 * Layers' cubes, and Female Gender Mod's breasts by a body's shape and the layouts of their faces.
+	 */
+	public record Extras(boolean cubes, GenderFigure.Shape breasts, int[][][] layouts) {
+		String key() {
+			String said = cubes + "|" + breasts + "|" + (layouts == null ? "" : java.util.Arrays.deepToString(layouts));
+			return (cubes ? "c" : "f") + Integer.toString(said.hashCode() & 0x7FFFFFFF, 36);
+		}
+	}
+
+	/**
+	 * A skin's picture drawn here with {@code extras}, or as the site draws it without them: for the
+	 * cards of the catalogue and of "My skins" where another mod changes how a player looks.
+	 */
+	public Picture figure(Wardrobe.Entry entry, Extras extras) {
+		String key = figureKey(entry.key, extras);
 		Picture known = pictures.get(key);
 		if (known != null) return known;
 		Picture loading = new Picture(State.LOADING, null, 0, 0);
@@ -256,12 +276,30 @@ public final class Skins {
 		trimPictures();
 		boolean slim = entry.slim();
 		bytesOf(entry, false).thenApplyAsync(Skins::pixelsOf, site.work())
-			.thenApplyAsync(pixels -> pixels == null ? null : SkinFigure.render(pixels, slim), site.work())
+			.thenApplyAsync(pixels -> pixels == null ? null : drawn(pixels, slim, extras), site.work())
 			.whenComplete((figure, problem) -> Minecraft.getInstance().execute(() -> {
 				if (pictures.get(key) != loading) return;
 				pictures.put(key, problem != null || figure == null ? new Picture(State.FAILED, null, 0, 0) : uploadFigure(key, figure));
 			}));
 		return loading;
+	}
+
+	/** The same for a card of the catalogue, made into a wardrobe entry only when it is not drawn yet. */
+	public Picture figure(SkinCard card, Extras extras) {
+		Picture known = pictures.get(figureKey("site:" + card.id(), extras));
+		return known != null ? known : figure(card.entry(System.currentTimeMillis()), extras);
+	}
+
+	private static String figureKey(String entry, Extras extras) {
+		return "figure-" + entry + (extras == null ? "" : "-" + extras.key());
+	}
+
+	private static int[] drawn(int[] pixels, boolean slim, Extras extras) {
+		if (extras == null) return SkinFigure.render(pixels, slim);
+		if (extras.breasts() == null) return SkinFigure.render(pixels, slim, extras.cubes(), null);
+		int[][] laid = GenderFigure.laidOut(pixels, extras.layouts());
+		return SkinFigure.render(extras.cubes() ? laid[1] : laid[0], slim, extras.cubes(),
+			GenderFigure.still(extras.breasts(), extras.cubes()));
 	}
 
 	/** A file on this computer drawn the same way, under a name of the caller's, who releases it; null when it is no skin. */
@@ -331,6 +369,38 @@ public final class Skins {
 	public Look look(SkinCard card) {
 		Look known = looks.get("site:" + card.id());
 		return known != null ? known : look(card.entry(0));
+	}
+
+	/** Made on first use rather than where declared: a game that had this class swapped in while running has them unset. */
+	private Map<String, String> categories;
+	private java.util.Set<String> categoriesAsked;
+
+	/**
+	 * The site's category of a skin of "My skins" (girls, boys, ...): "" for one that is not the site's
+	 * or has none, null until it has come. Asked of the site once and kept on disk, as it hardly changes.
+	 */
+	public String category(Wardrobe.Entry entry) {
+		if (entry.id == null) return "";
+		if (categories == null) {
+			categories = new HashMap<>();
+			categoriesAsked = new java.util.HashSet<>();
+		}
+		String id = entry.id;
+		String known = categories.get(id);
+		if (known != null || !categoriesAsked.add(id)) return known;
+		Minecraft minecraft = Minecraft.getInstance();
+		Path file = root.resolve("cache/skins/info/" + safe(id) + ".json");
+		site.fetchKept(file, safe(id) + ".", "/api/skins/" + id, TIMEOUT)
+			.thenApplyAsync(Skins::categoryOf, site.work())
+			.whenComplete((category, problem) -> minecraft.execute(() -> categories.put(id, problem != null || category == null ? "" : category)));
+		return null;
+	}
+
+	private static String categoryOf(byte[] json) {
+		var read = JsonParser.parseString(new String(json, java.nio.charset.StandardCharsets.UTF_8));
+		if (!read.isJsonObject()) return "";
+		var category = read.getAsJsonObject().get("category");
+		return category != null && category.isJsonPrimitive() ? category.getAsString() : "";
 	}
 
 	// ------------------------------------------------------------------ pictures with the eyes moving
@@ -454,8 +524,9 @@ public final class Skins {
 	}
 
 	/**
-	 * A skin file without its filled corners ({@link SkinPixels#clearFilledCorners}), for what goes
-	 * out to others: players with the Fresh Moves pack and without this mod would see them black.
+	 * A skin file without what the Fresh Moves pack would draw from its corners
+	 * ({@link SkinPixels#clearPackCorners}), for what goes out to others: players with the pack and
+	 * without this mod would see it over the face.
 	 * The same bytes when there are none, or when it cannot be read.
 	 */
 	static byte[] cleaned(byte[] bytes) {
@@ -467,7 +538,7 @@ public final class Skins {
 			for (int y = 0; y < h; y++) {
 				for (int x = 0; x < w; x++) sheet[y * 64 + x] = image.getPixel(x, y);
 			}
-			if (!SkinPixels.clearFilledCorners(sheet)) return bytes;
+			if (!SkinPixels.clearPackCorners(sheet)) return bytes;
 			for (int[] corner : SkinPixels.CORNERS) {
 				for (int y = corner[1]; y < corner[1] + 8; y++) {
 					for (int x = corner[0]; x < corner[0] + 8; x++) image.setPixel(x, y, sheet[y * 64 + x]);
@@ -630,6 +701,16 @@ public final class Skins {
 		appliedListeners.add(listener);
 	}
 
+	private final List<Consumer<Wardrobe.Entry>> wearingListeners = new ArrayList<>();
+
+	/**
+	 * Called once a skin is on, before the wardrobe records it as worn: the skin worn last is
+	 * still the one before it.
+	 */
+	public void onWearing(Consumer<Wardrobe.Entry> listener) {
+		wearingListeners.add(listener);
+	}
+
 	public Wear wearState(String key) {
 		return wears.get(key);
 	}
@@ -686,6 +767,7 @@ public final class Skins {
 			Texture texture = upload("worn-" + entry.key, pixels, modelOf(applied.arms()));
 			show(minecraft.getUser().getProfileId(), "worn-" + entry.key, texture);
 			Wardrobe into = wardrobe();
+			for (Consumer<Wardrobe.Entry> listener : wearingListeners) listener.accept(entry);
 			into.worn(entry, applied.texture(), applied.arms(), System.currentTimeMillis());
 			Applied told = new Applied(into.get(entry.key) != null ? into.get(entry.key) : entry, applied);
 			for (Consumer<Applied> listener : appliedListeners) listener.accept(told);
@@ -723,6 +805,7 @@ public final class Skins {
 			wears.put(entry.key, new Wear(State.READY, null));
 			showOnMe("worn-" + entry.key, upload("worn-" + entry.key, pixels, modelOf(entry.arms)));
 			Wardrobe into = wardrobe();
+			for (Consumer<Wardrobe.Entry> listener : wearingListeners) listener.accept(entry);
 			into.worn(entry, null, entry.arms, System.currentTimeMillis());
 			Applied told = new Applied(into.get(entry.key) != null ? into.get(entry.key) : entry, null);
 			for (Consumer<Applied> listener : appliedListeners) listener.accept(told);

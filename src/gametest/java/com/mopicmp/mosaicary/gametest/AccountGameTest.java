@@ -25,7 +25,6 @@ import com.mopicmp.mosaicary.wardrobe.Wardrobe;
 
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
@@ -50,6 +49,7 @@ public final class AccountGameTest implements FabricClientGameTest {
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
+		if (Steps.skipped(this)) return;
 		String site = System.getProperty("mosaicary.testSite");
 		String key = System.getProperty("mosaicary.testSiteKey");
 		if (site == null || key == null) return;
@@ -117,8 +117,7 @@ public final class AccountGameTest implements FabricClientGameTest {
 		// In a world the skin goes to the other players with the mod, and theirs come back.
 		UUID byName = context.computeOnClient((Minecraft minecraft) -> Skins.offlineId(minecraft.getUser().getName()));
 		UUID other = UUID.nameUUIDFromBytes("OfflinePlayer:SomebodyElse".getBytes(java.nio.charset.StandardCharsets.UTF_8));
-		try (TestSingleplayerContext world = context.worldBuilder().create()) {
-			world.getConnection().waitForChunksRender();
+		try (Steps.LightWorld world = Steps.lightWorld(context)) {
 			context.getInput().lookAt(0, 0);
 			context.runOnClient((Minecraft minecraft) -> minecraft.options.setCameraType(CameraType.THIRD_PERSON_FRONT));
 			context.waitTicks(40);

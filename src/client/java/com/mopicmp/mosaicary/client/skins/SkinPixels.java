@@ -49,7 +49,7 @@ public final class SkinPixels {
 			copy(out, 52, 20, -8, 32, 4, 12);
 		}
 		if (legacy) clearHatIfSolid(out);
-		clearFilledCorners(out);
+		clearPackCorners(out);
 		return out;
 	}
 
@@ -71,21 +71,33 @@ public final class SkinPixels {
 	public static final int CORNER_DRAWN_MOST = 32;
 
 	/**
-	 * Empties corners filled solid: some editors save a skin with a colour behind everything, and
-	 * the pack would draw that colour over the face, usually as black blocks where the eyes are.
-	 * A skin prepared for the pack keeps its corners: of the eighteen its author prepared none fills
-	 * more than 16 pixels of one, while about one skin in twenty found on players fills a whole one.
+	 * Empties the corners the Fresh Moves pack reads, as the pack puts whatever they hold in front
+	 * of the face, usually as black blocks where the eyes are. A skin that carries a copy of its
+	 * eyes there ({@link FreshEyes#read}) keeps them, but for a corner filled solid: some editors
+	 * save a skin with a colour behind everything, and of the eighteen skins the pack's author
+	 * prepared none fills more than 16 pixels of one. Any other skin has them emptied, whatever they
+	 * hold: a background, an author's signature, a pattern, cut-offs of hair; the game itself never
+	 * draws them. Of 1429 skins found on players, 109 held something there the pack would put on the
+	 * face; all eighteen of the author's are read as carrying eyes.
+	 *
+	 * Pixels may be ARGB or ABGR: only alpha is read, and colours are compared with each other.
 	 *
 	 * @return whether anything was emptied
 	 */
-	public static boolean clearFilledCorners(int[] image) {
+	public static boolean clearPackCorners(int[] image) {
+		boolean eyes = FreshEyes.read(image) != null;
 		boolean cleared = false;
 		for (int[] corner : CORNERS) {
 			int solid = 0;
+			int seen = 0;
 			for (int y = corner[1]; y < corner[1] + 8; y++) {
-				for (int x = corner[0]; x < corner[0] + 8; x++) if ((image[y * 64 + x] >>> 24) >= 128) solid++;
+				for (int x = corner[0]; x < corner[0] + 8; x++) {
+					int alpha = image[y * 64 + x] >>> 24;
+					if (alpha >= 128) solid++;
+					if (alpha != 0) seen++;
+				}
 			}
-			if (solid <= CORNER_DRAWN_MOST) continue;
+			if (seen == 0 || eyes && solid <= CORNER_DRAWN_MOST) continue;
 			cleared = true;
 			for (int y = corner[1]; y < corner[1] + 8; y++) {
 				for (int x = corner[0]; x < corner[0] + 8; x++) image[y * 64 + x] = 0;

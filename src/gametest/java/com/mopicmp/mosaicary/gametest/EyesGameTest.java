@@ -21,7 +21,6 @@ import com.mopicmp.mosaicary.wardrobe.Wardrobe;
 
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.CameraType;
@@ -58,6 +57,7 @@ public final class EyesGameTest implements FabricClientGameTest {
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
+		if (Steps.skipped(this)) return;
 		context.getInput().resizeWindow(1280, 720);
 		context.waitForScreen(TitleScreen.class);
 		context.waitTicks(60);
@@ -221,15 +221,21 @@ public final class EyesGameTest implements FabricClientGameTest {
 		context.waitFor((Minecraft minecraft) -> MosaicaryClient.instance().skins().shelf(SkinsScreen.query()).cards.stream()
 			.anyMatch(one -> !one.eyes()), 20 * 60);
 		context.waitTicks(20);
-		// One that can show what becomes of an empty corner; many cannot.
+		// One that can show what becomes of an empty corner; many cannot. Or the one asked for by its id (-PtestSkin),
+		// opened wherever it is on the shelf.
+		String chosen = System.getProperty("mosaicary.testSkin");
 		int cards = context.computeOnClient((Minecraft minecraft) -> MosaicaryClient.instance().skins().shelf(SkinsScreen.query()).cards.size());
 		boolean found = false;
-		for (int i = 0; i < Math.min(cards, 12) && !found; i++) {
+		for (int i = 0; i < (chosen != null ? cards : Math.min(cards, 12)) && !found; i++) {
 			int index = i;
-			boolean eyes = context.computeOnClient((Minecraft minecraft) -> MosaicaryClient.instance().skins().shelf(SkinsScreen.query()).cards.get(index).eyes());
-			if (eyes) continue;
-			int[] center = context.computeOnClient((Minecraft minecraft) -> ((SkinsScreen) minecraft.gui.screen()).cardCenter(index));
-			Steps.click(context, center[0], center[1]);
+			SkinCard shelved = context.computeOnClient((Minecraft minecraft) -> MosaicaryClient.instance().skins().shelf(SkinsScreen.query()).cards.get(index));
+			if (shelved.eyes() || chosen != null && !shelved.id().equals(chosen)) continue;
+			if (chosen != null) {
+				context.runOnClient((Minecraft minecraft) -> ((SkinsScreen) minecraft.gui.screen()).openCard(shelved));
+			} else {
+				int[] center = context.computeOnClient((Minecraft minecraft) -> ((SkinsScreen) minecraft.gui.screen()).cardCenter(index));
+				Steps.click(context, center[0], center[1]);
+			}
 			context.waitFor((Minecraft minecraft) -> minecraft.gui.screen() instanceof SkinsScreen screen && screen.openCard() != null, 100);
 			context.waitFor((Minecraft minecraft) -> {
 				SkinsScreen screen = (SkinsScreen) minecraft.gui.screen();
@@ -425,8 +431,7 @@ public final class EyesGameTest implements FabricClientGameTest {
 		// on shows it: the pack draws its eyes out of the skin's corners, and whatever is empty
 		// there has to stay empty rather than turn black.
 		if (ready) {
-			try (TestSingleplayerContext world = context.worldBuilder().create()) {
-				world.getConnection().waitForChunksRender();
+			try (Steps.LightWorld world = Steps.lightWorld(context)) {
 				context.getInput().lookAt(0, 0);
 				context.runOnClient((Minecraft minecraft) -> {
 					minecraft.options.setCameraType(CameraType.THIRD_PERSON_FRONT);

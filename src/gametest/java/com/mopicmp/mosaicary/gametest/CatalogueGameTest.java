@@ -13,7 +13,6 @@ import com.mopicmp.mosaicary.client.ui.PauseMenuButton;
 
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -36,10 +35,10 @@ public final class CatalogueGameTest implements FabricClientGameTest {
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
+		if (Steps.skipped(this)) return;
 		// The model shelf is hidden in this release; -Dmosaicary.models=true brings it and this test back.
 		if (!com.mopicmp.mosaicary.client.MosaicaryClient.MODELS) return;
-		try (TestSingleplayerContext world = context.worldBuilder().create()) {
-			world.getConnection().waitForChunksRender();
+		try (Steps.LightWorld world = Steps.lightWorld(context)) {
 
 			// The key.
 			context.getInput().pressKey(InputConstants.KEY_M);

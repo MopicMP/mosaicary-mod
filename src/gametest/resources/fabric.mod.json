@@ -4,7 +4,7 @@
 	"version": "1.0.0",
 	"name": "Mosaicary client game test",
 	"description": "Drives the Mosaicary catalogue with real input in a running game. Development only.",
-	"license": "All rights reserved",
+	"license": "LGPL-3.0-only",
 	"environment": "client",
 	"entrypoints": {
 		"fabric-client-gametest": [
@@ -14,7 +14,14 @@
 			"com.mopicmp.mosaicary.gametest.AccountGameTest",
 			"com.mopicmp.mosaicary.gametest.WearGameTest",
 			"com.mopicmp.mosaicary.gametest.CatalogueGameTest",
-			"com.mopicmp.mosaicary.gametest.BuildsGameTest"
+			"com.mopicmp.mosaicary.gametest.BuildsGameTest",
+			"com.mopicmp.mosaicary.gametest.SkinLayersGameTest",
+			"com.mopicmp.mosaicary.gametest.GenderGameTest",
+			"com.mopicmp.mosaicary.gametest.SkinLayersGenderGameTest",
+			"com.mopicmp.mosaicary.gametest.GenderSizesGameTest",
+			"com.mopicmp.mosaicary.gametest.WalkSideGameTest",
+			"com.mopicmp.mosaicary.gametest.GenderBodyGameTest",
+			"com.mopicmp.mosaicary.gametest.GenderFigureGameTest"
 		]
 	},
 	"depends": {

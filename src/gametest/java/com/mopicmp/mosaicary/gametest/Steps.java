@@ -11,6 +11,7 @@ import com.mopicmp.mosaicary.client.ui.CatalogueScreen;
 //#endif
 
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
+import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.AbstractWidget;
 
@@ -18,6 +19,59 @@ import net.minecraft.client.gui.components.AbstractWidget;
 final class Steps {
 
 	private Steps() { }
+
+	/**
+	 * Whether a test is left out of this run: one test alone is run with {@code -PtestOnly=}its
+	 * class name, as Fabric runs every test of a mod and the whole round takes ten minutes.
+	 */
+	static boolean skipped(Object test) {
+		String only = System.getProperty("mosaicary.testOnly");
+		return only != null && !only.equals(test.getClass().getSimpleName());
+	}
+
+	/**
+	 * A test world, made so that it loads on a computer without a graphics card (Xvfb), where the
+	 * processor draws the game. The test runs the game and its server a tick each in turn, so the
+	 * world is built only as fast as frames are drawn, and the loading screen's blurred background
+	 * takes seconds a frame: on two cores the world was never done ("Timeout loading world"). So the
+	 * window is small and the blur off while it loads, and the fewest chunks are drawn around the
+	 * player while it is open. Its chunks drawn, the window is its size again; closed, the world
+	 * gives back the settings.
+	 */
+	static LightWorld lightWorld(ClientGameTestContext context) {
+		int[] before = context.computeOnClient((Minecraft minecraft) -> new int[] { minecraft.getWindow().getScreenWidth(),
+			minecraft.getWindow().getScreenHeight(), minecraft.options.menuBackgroundBlurriness().get(), minecraft.options.renderDistance().get() });
+		context.getInput().resizeWindow(640, 360);
+		context.runOnClient((Minecraft minecraft) -> {
+			minecraft.options.menuBackgroundBlurriness().set(0);
+			minecraft.options.renderDistance().set(2);
+		});
+		TestSingleplayerContext world = context.worldBuilder().create();
+		world.getConnection().waitForChunksRender();
+		context.getInput().resizeWindow(before[0], before[1]);
+		return new LightWorld(context, world, before[2], before[3]);
+	}
+
+	/** A world made by {@link #lightWorld}: closing it closes the world and puts the settings back. */
+	record LightWorld(ClientGameTestContext context, TestSingleplayerContext world, int blur, int distance) implements AutoCloseable {
+		@Override
+		public void close() {
+			world.close();
+			context.runOnClient((Minecraft minecraft) -> {
+				minecraft.options.menuBackgroundBlurriness().set(blur);
+				minecraft.options.renderDistance().set(distance);
+			});
+		}
+	}
+
+	/** Hides the game's own interface, as F1 does, or shows it again; on the screen and in screenshots. */
+	static void hideGui(Minecraft minecraft, boolean hidden) {
+		//#if MC>=260100
+		if (minecraft.gui.hud.isHidden() != hidden) minecraft.gui.hud.toggle();
+		//#else
+		//$$ minecraft.options.hideGui = hidden;
+		//#endif
+	}
 
 	/** The GUI scale, to turn GUI units into window pixels for the pointer. */
 	static double scale(ClientGameTestContext context) {

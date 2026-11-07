@@ -24,11 +24,9 @@ class SkinPixelsTest {
 		int[] skin = blank(64);
 		skin[8 * 64 + 8] = 0x10FF0000;   // head front, base layer, nearly clear
 		skin[8 * 64 + 40] = 0x10FF0000;  // hat front, outer layer
-		skin[7 * 64 + 4] = 0xFF123456;   // a copy of the eyes for Fresh Moves
 		int[] out = SkinPixels.normalise(skin, 64, 64);
 		assertEquals(0x10FF0000, out[8 * 64 + 8]);
 		assertEquals(0x10FF0000, out[8 * 64 + 40]);
-		assertEquals(0xFF123456, out[7 * 64 + 4]);
 		assertEquals(0x00000000, out[0]);
 	}
 
@@ -43,16 +41,58 @@ class SkinPixelsTest {
 		assertEquals(0xFF123456, out[12 * 64 + 12]);
 	}
 
+	private static final int WHITE = 0xFFFFFFFF;
+	private static final int PUPIL = 0xFF223344;
+	private static final int LID = 0xFFC08060;
+
+	/**
+	 * Eyes on face row 6, white and pupil in columns 1, 2, 5 and 6, with their copy for Fresh Moves
+	 * in the corner the pack reads them from: a cell at (4, 7), the lid's colour a row above.
+	 */
+	private static int[] withEyes() {
+		int[] skin = blank(64);
+		int[] drawn = { WHITE, PUPIL, PUPIL, WHITE };
+		int[] columns = { 1, 2, 5, 6 };
+		for (int i = 0; i < 4; i++) {
+			skin[14 * 64 + 8 + columns[i]] = drawn[i];
+			skin[7 * 64 + 4 + i] = drawn[i];
+			skin[6 * 64 + 4 + i] = LID;
+		}
+		return skin;
+	}
+
 	@Test
 	void whatIsDrawnForThePackInACornerStays() {
-		int[] skin = blank(64);
-		// A copy of the eyes and its lids: at most sixteen pixels in the skins the pack's author prepared.
-		for (int x = 4; x < 8; x++) {
-			for (int y = 0; y < 4; y++) skin[y * 64 + x] = 0xFF123456;
-		}
+		int[] skin = withEyes();
+		// A skin prepared by hand can have more for the pack in the other corners, brows or lashes.
+		skin[2 * 64 + 25] = 0xFF654321;
 		int[] out = SkinPixels.normalise(skin, 64, 64);
-		assertEquals(0xFF123456, out[64 + 4]);
-		assertEquals(false, SkinPixels.clearFilledCorners(out));
+		assertEquals(WHITE, out[7 * 64 + 4]);
+		assertEquals(PUPIL, out[7 * 64 + 5]);
+		assertEquals(LID, out[6 * 64 + 4]);
+		assertEquals(0xFF654321, out[2 * 64 + 25]);
+		assertEquals(false, SkinPixels.clearPackCorners(out));
+	}
+
+	@Test
+	void aSignatureInACornerIsEmptied() {
+		// A letter drawn where the pack reads its eyes, with no copy of the eyes on the skin: the
+		// pack would draw it over the face as black eyes.
+		int[] skin = blank(64);
+		for (int y = 0; y < 8; y++) skin[y * 64 + 30] = 0xFF000000;
+		skin[13 * 64 + 9] = 0xFF070A22; // the face stays
+		int[] out = SkinPixels.normalise(skin, 64, 64);
+		for (int y = 0; y < 8; y++) assertEquals(0, out[y * 64 + 30]);
+		assertEquals(0xFF070A22, out[13 * 64 + 9]);
+	}
+
+	@Test
+	void aCornerFilledWithABackgroundIsEmptiedBesideACopyOfTheEyes() {
+		int[] skin = withEyes();
+		for (int y = 0; y < 8; y++) for (int x = 56; x < 64; x++) skin[y * 64 + x] = 0xFF000000;
+		int[] out = SkinPixels.normalise(skin, 64, 64);
+		assertEquals(0, out[56]);
+		assertEquals(WHITE, out[7 * 64 + 4]);
 	}
 
 	/** A skin solid wherever the body is drawn and clear everywhere else. */

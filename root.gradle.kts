@@ -6,20 +6,29 @@ plugins {
 // game version (another loader) or the loader (another game version); a file on a link holds the
 // renames it cannot work out by itself.
 preprocess {
-	val fabric26_3 = createNode("26.3-fabric", 26_03_00, "official")
-	val neoForge26_3 = createNode("26.3-neoforge", 26_03_00, "official")
-	val fabric1_21_11 = createNode("1.21.11-fabric", 1_21_11, "official")
-	val neoForge1_21_11 = createNode("1.21.11-neoforge", 1_21_11, "official")
-	val fabric1_21_1 = createNode("1.21.1-fabric", 1_21_01, "official")
-	val neoForge1_21_1 = createNode("1.21.1-neoforge", 1_21_01, "official")
-	val fabric1_20_1 = createNode("1.20.1-fabric", 1_20_01, "official")
-	val forge1_20_1 = createNode("1.20.1-forge", 1_20_01, "official")
-	val fabric1_19_2 = createNode("1.19.2-fabric", 1_19_02, "official")
-	val forge1_19_2 = createNode("1.19.2-forge", 1_19_02, "official")
-	val fabric1_18_2 = createNode("1.18.2-fabric", 1_18_02, "official")
-	val forge1_18_2 = createNode("1.18.2-forge", 1_18_02, "official")
-	val fabric1_16_5 = createNode("1.16.5-fabric", 1_16_05, "official")
-	val forge1_16_5 = createNode("1.16.5-forge", 1_16_05, "official")
+	// Only the projects settings.gradle.kts set up (all, or those `-Pnodes` asked for and the ones
+	// their code is derived through), and the links between them: a link to a project left out is
+	// skipped. The first node made is the main project, where the preprocessor starts.
+	fun node(project: String, mcVersion: Int) =
+		if (findProject(":$project") != null) createNode(project, mcVersion, "official") else null
+	fun com.replaymod.gradle.preprocess.Node?.link(other: com.replaymod.gradle.preprocess.Node?, extraMappings: File? = null) {
+		if (this != null && other != null) link(other, extraMappings)
+	}
+
+	val fabric26_3 = node("26.3-fabric", 26_03_00)
+	val neoForge26_3 = node("26.3-neoforge", 26_03_00)
+	val fabric1_21_11 = node("1.21.11-fabric", 1_21_11)
+	val neoForge1_21_11 = node("1.21.11-neoforge", 1_21_11)
+	val fabric1_21_1 = node("1.21.1-fabric", 1_21_01)
+	val neoForge1_21_1 = node("1.21.1-neoforge", 1_21_01)
+	val fabric1_20_1 = node("1.20.1-fabric", 1_20_01)
+	val forge1_20_1 = node("1.20.1-forge", 1_20_01)
+	val fabric1_19_2 = node("1.19.2-fabric", 1_19_02)
+	val forge1_19_2 = node("1.19.2-forge", 1_19_02)
+	val fabric1_18_2 = node("1.18.2-fabric", 1_18_02)
+	val forge1_18_2 = node("1.18.2-forge", 1_18_02)
+	val fabric1_16_5 = node("1.16.5-fabric", 1_16_05)
+	val forge1_16_5 = node("1.16.5-forge", 1_16_05)
 
 	neoForge26_3.link(fabric26_3)
 	fabric26_3.link(fabric1_21_11, file("versions/26.3-1.21.11.txt"))

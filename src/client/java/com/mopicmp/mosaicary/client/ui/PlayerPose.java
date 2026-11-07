@@ -2,12 +2,20 @@ package com.mopicmp.mosaicary.client.ui;
 
 import java.util.NoSuchElementException;
 
+import com.mopicmp.mosaicary.client.MosaicaryClient;
+import com.mopicmp.mosaicary.client.compat.GenderFigure;
+import com.mopicmp.mosaicary.client.compat.GenderMod;
+import com.mopicmp.mosaicary.client.compat.SkinLayers3d;
+
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.model.geom.ModelPart;
 //#if MC>=11700
 import net.minecraft.client.model.geom.PartPose;
 import net.minecraft.client.model.geom.builders.CubeDeformation;
+import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
+import net.minecraft.client.model.geom.builders.MeshDefinition;
+import net.minecraft.client.model.geom.builders.PartDefinition;
 //#endif
 import net.minecraft.client.model.player.PlayerModel;
 import net.minecraft.resources.Identifier;
@@ -51,6 +59,16 @@ public final class PlayerPose {
 	 * Before 1.21.2 a model is not built around its parts, and the parts are drawn as they are.
 	 */
 	public static final class Figure {
+
+		/** Whether its arms are the slim ones, a pixel narrower. */
+		private boolean slim;
+
+		/** Female Gender Mod's breasts for the next frames, or null (see {@link PlayerPose#breasts}). */
+		private GenderFigure.Shape breasts;
+		private final GenderFigure.Physics physics = new GenderFigure.Physics();
+		private float breastSeconds;
+		/** The same figure with breasts, drawn in its place while it has them; made when first needed. */
+		private Figure breasted;
 
 		//#if MC>=11700
 		private final ModelPart root;
@@ -121,16 +139,106 @@ public final class PlayerPose {
 		//$$ root.getChild("cloak").visible = false;
 		//#endif
 		//#if MC>=260100
-		return new Figure(new Model.Simple(root, RenderTypes::entityTranslucent));
+		return withArms(new Figure(new Model.Simple(root, RenderTypes::entityTranslucent)), slim);
 		//#elseif MC>=12111
-		//$$ return new Figure(new PlayerModel(root, slim));
+		//$$ return withArms(new Figure(new PlayerModel(root, slim)), slim);
 		//#else
-		//$$ return new Figure(root);
+		//$$ return withArms(new Figure(root), slim);
 		//#endif
 		//#else
 		//$$ // Before 1.17 the game's model is built by its constructor; the ears and the cape are drawn apart
 		//$$ // by the game and left out here.
-		//$$ return new Figure(new PlayerModel<>(0, slim));
+		//$$ return withArms(new Figure(new PlayerModel<>(0, slim)), slim);
+		//#endif
+	}
+
+	//#if MC>=11700
+	/** The parts of a figure's breasts and their outer layer, under the body. */
+	private static final String LEFT_BREAST = "mosaicary_left_breast";
+	private static final String RIGHT_BREAST = "mosaicary_right_breast";
+	private static final String WEAR = "_wear";
+
+	/**
+	 * The figure's model with Female Gender Mod's breasts as parts of the body, each with its outer
+	 * layer: boxes from the faces laid out under the skin in a figure's picture (GenderFigure), which
+	 * is twice as high as a skin.
+	 */
+	private static Figure breastedModel(boolean slim) {
+		MeshDefinition mesh = PlayerModel.createMesh(CubeDeformation.NONE, slim);
+		PartDefinition body = mesh.getRoot().getChild("body");
+		//#if MC>=11900
+		CubeDeformation wear = CubeDeformation.NONE;
+		//#else
+		//$$ // A part has no size of its own before 1.19: the outer layer is grown instead of scaled.
+		//$$ CubeDeformation wear = new CubeDeformation(0.1f);
+		//#endif
+		for (boolean left : new boolean[] { true, false }) {
+			int u = left ? GenderFigure.LEFT_U : GenderFigure.RIGHT_U;
+			float x = left ? -GenderFigure.WIDTH : 0;
+			PartDefinition breast = body.addOrReplaceChild(left ? LEFT_BREAST : RIGHT_BREAST, CubeListBuilder.create()
+				.texOffs(u, GenderFigure.SKIN_V).addBox(x, 0, 0, GenderFigure.WIDTH, GenderFigure.HEIGHT, GenderFigure.DEPTH), PartPose.ZERO);
+			breast.addOrReplaceChild((left ? LEFT_BREAST : RIGHT_BREAST) + WEAR, CubeListBuilder.create()
+				.texOffs(u, GenderFigure.OVERLAY_V).addBox(x, 0, 0, GenderFigure.WIDTH, GenderFigure.HEIGHT, GenderFigure.DEPTH, wear), PartPose.ZERO);
+		}
+		ModelPart root = LayerDefinition.create(mesh, 64, GenderFigure.PICTURE_HEIGHT).bakeRoot();
+		//#if MC>=12111
+		deeper(root.getChild("left_leg"), LEG);
+		deeper(root.getChild("left_arm"), ARM);
+		deeper(root.getChild("right_arm"), ARM);
+		deeper(root.getChild("body").getChild("jacket"), JACKET);
+		//#else
+		//$$ root.getChild("ear").visible = false;
+		//$$ root.getChild("cloak").visible = false;
+		//#endif
+		//#if MC>=260100
+		return withArms(new Figure(new Model.Simple(root, RenderTypes::entityTranslucent)), slim);
+		//#elseif MC>=12111
+		//$$ return withArms(new Figure(new PlayerModel(root, slim)), slim);
+		//#else
+		//$$ return withArms(new Figure(root), slim);
+		//#endif
+	}
+
+	/** The parts posed for a frame, which the figure with breasts takes from the figure it stands in for. */
+	private static final String[] POSED = { "head", "body", "right_arm", "left_arm", "right_leg", "left_leg" };
+	//#endif
+
+	/**
+	 * Female Gender Mod's breasts on the figure for the frames from now on, by a body's {@code shape}
+	 * (GenderFigure), or none with null; set after the figure is posed and before it is drawn.
+	 * {@code seconds} is the figure's clock, as its walk has it, and {@code yaw} how far it is turned,
+	 * in degrees: they move the bounce, where the body has it switched on. Before 1.17 nothing is drawn.
+	 */
+	public static void breasts(Figure figure, GenderFigure.Shape shape, float seconds, boolean walking, float yaw) {
+		figure.breasts = shape;
+		if (shape == null) return;
+		figure.breastSeconds = seconds;
+		// The walk's own limb position (see walk).
+		figure.physics.update(shape, seconds, walking, seconds * 9, yaw);
+	}
+
+	private static Figure withArms(Figure figure, boolean slim) {
+		figure.slim = slim;
+		return figure;
+	}
+
+	//#if MC>=12111
+	/** The part each outer layer is a part of, from 1.21.2 on; before, it lies beside it. */
+	private static final java.util.Map<String, String> COVERS = java.util.Map.of("hat", "head", "jacket", "body",
+		"left_sleeve", "left_arm", "right_sleeve", "right_arm", "left_pants", "left_leg", "right_pants", "right_leg");
+	//#endif
+
+	/** An outer layer of the figure by its name, or null. */
+	private static ModelPart outer(Figure figure, String name) {
+		//#if MC>=12111
+		ModelPart covered = part(figure, COVERS.get(name));
+		try {
+			return covered == null ? null : covered.getChild(name);
+		} catch (NoSuchElementException missing) {
+			return null;
+		}
+		//#else
+		//$$ return part(figure, name);
 		//#endif
 	}
 
@@ -139,9 +247,45 @@ public final class PlayerPose {
 	 * the one behind the player figure on the skin customisation screen. Before 1.21.6 the game has
 	 * none, and the figure is drawn here the way that renderer does: turned about its middle by
 	 * {@code rotationX}, about its height by {@code rotationY}, feet at the bottom of the box.
+	 *
+	 * With 3D Skin Layers installed, the outer layer is made of small cubes as in the world, built
+	 * from the skin's {@code pixels} (null while they are not known: the layer is flat until then).
 	 */
-	public static void draw(GuiGraphicsExtractor graphics, Figure figure, Identifier texture, float scale,
+	public static void draw(GuiGraphicsExtractor graphics, Figure shown, Identifier shownTexture, int[] shownPixels, float scale,
 			float rotationX, float rotationY, float pivotY, int x0, int y0, int x1, int y1) {
+		Figure figure = shown;
+		Identifier texture = shownTexture;
+		int[] pixels = shownPixels;
+		boolean layers = MosaicaryClient.instance().settings().skinLayersOnFigures;
+		//#if MC>=11700
+		// With breasts, the figure with them stands in, posed as this one, from a picture of the skin with them.
+		GenderFigure.Picture picture = shown.breasts == null ? null
+			: GenderFigure.picture(shownTexture, shownPixels, GenderMod.layouts(net.minecraft.client.Minecraft.getInstance().getUser().getProfileId()));
+		if (picture != null) {
+			if (shown.breasted == null) shown.breasted = breastedModel(shown.slim);
+			figure = shown.breasted;
+			for (String name : POSED) {
+				ModelPart from = part(shown, name);
+				ModelPart to = part(figure, name);
+				if (from != null && to != null) to.loadPose(from.storePose());
+			}
+			ModelPart body = part(figure, "body");
+			ModelPart left = body.getChild(LEFT_BREAST);
+			ModelPart right = body.getChild(RIGHT_BREAST);
+			ModelPart leftWear = left.getChild(LEFT_BREAST + WEAR);
+			ModelPart rightWear = right.getChild(RIGHT_BREAST + WEAR);
+			Object[] meshes = layers && SkinLayers3d.jacket() ? GenderFigure.meshes(picture) : null;
+			GenderFigure.pose(left, right, leftWear, rightWear, shown.breasts, shown.physics, shown.breastSeconds, meshes != null);
+			SkinLayers3d.hangBreast(leftWear, meshes == null ? null : meshes[0], true);
+			SkinLayers3d.hangBreast(rightWear, meshes == null ? null : meshes[1], false);
+			texture = picture.texture();
+			// The jacket's cubes from the picture with the breasts' fronts cleared: none where the breasts are.
+			pixels = picture.cut();
+		}
+		//#endif
+		Figure dressed = figure;
+		// Switched off in the settings, the figure is dressed as before the pixels are known: flat.
+		SkinLayers3d.dress(name -> outer(dressed, name), layers ? pixels : null, figure.slim);
 		//#if MC>=260100
 		graphics.skin((Model.Simple) figure.model, texture, scale, rotationX, rotationY, pivotY, x0, y0, x1, y1);
 		//#elseif MC>=12111

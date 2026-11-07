@@ -16,7 +16,8 @@ import net.minecraft.network.chat.Component;
  *
  * The place is an offset from the figure's own spot, X to the right and Y down, in GUI units,
  * typed or stepped with the buttons beside the fields; the size is a slider, in percent of its
- * own height. Every change is saved and shown at once, here and on the menu.
+ * own height; under it, whether the player's name stands over the figure. Every change is saved
+ * and shown at once, here and on the menu.
  */
 public final class MenuSkinScreen extends Screen {
 
@@ -29,6 +30,10 @@ public final class MenuSkinScreen extends Screen {
 	private EditBox xField;
 	private EditBox yField;
 	private SizeSlider sizeSlider;
+	private IconButton nameOn;
+	private IconButton nameOff;
+	private int nameY;
+	private boolean nameCut;
 
 	public MenuSkinScreen(Screen parent, MenuSkin.Beside beside) {
 		super(Component.translatable(beside == MenuSkin.Beside.MAIN ? "mosaicary.menu_skin.title" : "mosaicary.menu_skin.title.pause"));
@@ -41,7 +46,7 @@ public final class MenuSkinScreen extends Screen {
 	}
 
 	private int panelTop() {
-		return Math.max(4, height / 2 - 70);
+		return Math.max(4, height / 2 - 83);
 	}
 
 	@Override
@@ -60,6 +65,17 @@ public final class MenuSkinScreen extends Screen {
 		y += ROW + 10;
 		sizeSlider = new SizeSlider(x + 4, y, PANEL - 8, ROW, beside.size(settings()));
 		addRenderableWidget(sizeSlider);
+		y += ROW + 6;
+		// The name over the figure: two icon buttons, the current one lit.
+		nameY = y;
+		int right = x + PANEL - 4;
+		nameOn = IconButton.square(right - 2 * ROW - 2, y, ROW, Icon.SHARING, Component.translatable("mosaicary.menu_skin.name.on"),
+			() -> setNamed(true));
+		nameOff = IconButton.square(right - ROW, y, ROW, Icon.CLOSE, Component.translatable("mosaicary.menu_skin.name.off"),
+			() -> setNamed(false));
+		addRenderableWidget(nameOn);
+		addRenderableWidget(nameOff);
+		showNamed();
 		y += ROW + 10;
 		int half = (PANEL - 8 - 4) / 2;
 		addRenderableWidget(new IconButton(x + 4, y, half, ROW, Icon.RESET_VIEW, Component.translatable("mosaicary.menu_skin.reset"),
@@ -99,6 +115,29 @@ public final class MenuSkinScreen extends Screen {
 		addRenderableWidget(IconButton.square(fieldX + field + 2, y, ROW, Icon.MORE, Component.translatable("mosaicary.menu_skin.more"),
 			() -> box.setValue(Integer.toString(parse(box) + STEP))));
 		return box;
+	}
+
+	private void setNamed(boolean on) {
+		if (beside == MenuSkin.Beside.MAIN) settings().menuSkinName = on;
+		else settings().pauseSkinName = on;
+		save();
+		showNamed();
+	}
+
+	private void showNamed() {
+		boolean on = beside.named(settings());
+		nameOn.primary(on);
+		nameOff.primary(!on);
+	}
+
+	/** The button that hides the name over the figure; for the game test. */
+	public IconButton nameOffButton() {
+		return nameOff;
+	}
+
+	/** Whether the name row's words were too wide and were cut short when last drawn; for the game test. */
+	public boolean nameLabelCut() {
+		return nameCut;
 	}
 
 	private static int parse(EditBox box) {
@@ -172,13 +211,25 @@ public final class MenuSkinScreen extends Screen {
 		ghostMenu(graphics);
 		int x = 8;
 		int top = panelTop();
-		int bottom = top + 26 + (ROW + 6) + 2 * (ROW + 10) + ROW + 6;
+		int bottom = top + 26 + 2 * (ROW + 6) + 2 * (ROW + 10) + ROW + 6;
 		Theme.card(graphics, x, top, x + PANEL, bottom);
 		Icons.draw(graphics, Icon.OWN_SKIN, x + 6, top + 6, Theme.ACCENT);
 		graphics.text(font, ellipsis(title.getString(), PANEL - Icons.SIZE - 16), x + Icons.SIZE + 10, top + 10, Theme.TEXT, false);
 		label(graphics, xField, "X", Component.translatable("mosaicary.menu_skin.x.tooltip"), mouseX, mouseY);
 		label(graphics, yField, "Y", Component.translatable("mosaicary.menu_skin.y.tooltip"), mouseX, mouseY);
+		nameLabel(graphics, mouseX, mouseY);
 		super.extractRenderState(graphics, mouseX, mouseY, a);
+	}
+
+	/** The name row's words, left of its two buttons, with what they do in the tooltip. */
+	private void nameLabel(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+		String words = Component.translatable("mosaicary.menu_skin.name").getString();
+		String text = ellipsis(words, nameOn.getX() - 4 - 14);
+		nameCut = !text.equals(words);
+		graphics.text(font, text, 14, nameY + (ROW - 8) / 2, Theme.TEXT_DIM, false);
+		if (mouseX >= 8 && mouseX < nameOn.getX() && mouseY >= nameY && mouseY < nameY + ROW) {
+			Theme.tooltip(graphics, font, Component.translatable("mosaicary.menu_skin.name.tooltip"), mouseX, mouseY);
+		}
 	}
 
 	/** A coordinate's letter and the field-coloured card under its number. */

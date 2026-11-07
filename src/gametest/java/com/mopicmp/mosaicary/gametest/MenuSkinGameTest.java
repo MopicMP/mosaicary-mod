@@ -2,7 +2,9 @@ package com.mopicmp.mosaicary.gametest;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mopicmp.mosaicary.client.MosaicaryClient;
+import com.mopicmp.mosaicary.client.ui.IconButton;
 import com.mopicmp.mosaicary.client.ui.MenuSkin;
+import com.mopicmp.mosaicary.client.ui.MenuSkinScreen;
 import com.mopicmp.mosaicary.client.ui.SkinsScreen;
 
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
@@ -21,6 +23,7 @@ public final class MenuSkinGameTest implements FabricClientGameTest {
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
+		if (Steps.skipped(this)) return;
 		context.getInput().resizeWindow(1280, 720);
 		context.waitForScreen(TitleScreen.class);
 		// The menu fades in for two seconds, and the figure with it.
@@ -111,7 +114,54 @@ public final class MenuSkinGameTest implements FabricClientGameTest {
 		});
 		context.waitTicks(5);
 		context.takeScreenshot("menu-skin-5-switched-on");
+		nameOverHead(context);
 		hoverOver(context);
+	}
+
+	/**
+	 * The name over the figure: over its head and on the screen at every GUI scale; hidden by a real
+	 * click on the place screen's button, and gone from the menu then; shown again by the setting.
+	 */
+	private static void nameOverHead(ClientGameTestContext context) {
+		for (int scale : new int[] { 1, 2, 3, 4 }) {
+			setScale(context, scale);
+			float[] box = context.computeOnClient((Minecraft minecraft) -> MenuSkin.on(minecraft.gui.screen()).nameBox());
+			int[] figure = context.computeOnClient((Minecraft minecraft) -> {
+				MenuSkin skin = MenuSkin.on(minecraft.gui.screen());
+				return new int[] { skin.getX(), skin.getY(), skin.getWidth(), minecraft.gui.screen().width };
+			});
+			System.out.printf("menu skin name at scale %d: %.1f %.1f %.1f %.1f, figure from %d, %d wide%n",
+				scale, box == null ? 0 : box[0], box == null ? 0 : box[1], box == null ? 0 : box[2], box == null ? 0 : box[3], figure[1], figure[2]);
+			if (box == null) throw new AssertionError("No name over the figure at scale " + scale);
+			if (box[3] > figure[1] + 2) throw new AssertionError("The name is not over the figure's head at scale " + scale);
+			if (box[0] < 0 || box[2] > figure[3] || box[1] < 0) throw new AssertionError("The name goes off the screen at scale " + scale);
+			context.takeScreenshot("menu-skin-8-name-scale-" + scale);
+		}
+		setScale(context, 2);
+
+		context.runOnClient((Minecraft minecraft) -> { minecraft.gui.setScreen(new MenuSkinScreen(minecraft.gui.screen(), MenuSkin.Beside.MAIN)); });
+		context.waitTicks(10);
+		context.takeScreenshot("menu-skin-8-place-screen-name-on");
+		if (context.computeOnClient((Minecraft minecraft) -> ((MenuSkinScreen) minecraft.gui.screen()).nameLabelCut())) {
+			throw new AssertionError("The place screen's name row is cut short");
+		}
+		IconButton off =context.computeOnClient((Minecraft minecraft) -> ((MenuSkinScreen) minecraft.gui.screen()).nameOffButton());
+		Steps.click(context, off);
+		context.waitTicks(5);
+		boolean named = context.computeOnClient((Minecraft minecraft) -> MosaicaryClient.instance().settings().menuSkinName);
+		if (named) throw new AssertionError("The place screen's button did not hide the name");
+		context.takeScreenshot("menu-skin-8-place-screen-name-off");
+		context.getInput().pressKey(InputConstants.KEY_ESCAPE);
+		context.waitForScreen(TitleScreen.class);
+		context.waitTicks(10);
+		float[] hidden = context.computeOnClient((Minecraft minecraft) -> MenuSkin.on(minecraft.gui.screen()).nameBox());
+		if (hidden != null) throw new AssertionError("The name is still over the figure with it switched off");
+		context.takeScreenshot("menu-skin-8-name-off");
+		context.runOnClient((Minecraft minecraft) -> {
+			MosaicaryClient.instance().settings().menuSkinName = true;
+			MosaicaryClient.instance().saveSettings();
+		});
+		context.waitTicks(5);
 	}
 
 	private static void setScale(ClientGameTestContext context, int scale) {

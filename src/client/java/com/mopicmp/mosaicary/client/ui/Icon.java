@@ -88,13 +88,20 @@ public enum Icon {
 	CATEGORY(0, 9),
 	ARMS(6, 6),
 	LESS(1, 9),
-	MORE(2, 9);
+	MORE(2, 9),
+	GENDER(3, 9),
+	MALE(4, 9),
+	OTHER_GENDER(5, 9),
+	PHYSICS(6, 9),
+	DUAL_PHYSICS(7, 9),
+	VOICE(0, 10),
+	GENDER_WINDOW(1, 10);
 
 	/** The cell sizes the sheets were drawn at, in pixels, smallest first. */
 	public static final int[] CELLS = { 16, 32, 48, 64 };
 
 	public static final int COLUMNS = 8;
-	public static final int ROWS = 10;
+	public static final int ROWS = 11;
 
 	/** The resource path of the sheet with this cell size. */
 	public static String sheet(int cell) {

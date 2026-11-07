@@ -1,6 +1,6 @@
 modLoader = "javafml"
 loaderVersion = "[1,)"
-license = "All-Rights-Reserved"
+license = "LGPL-3.0-only"
 issueTrackerURL = "https://github.com/MopicMP/mosaicary-mod/issues"
 
 [[mods]]

@@ -12,6 +12,7 @@ import java.util.Map;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 
 /**
@@ -76,6 +77,29 @@ public final class Settings {
 	public int pauseSkinX;
 	public int pauseSkinY;
 	public int pauseSkinSize = 100;
+
+	/** Whether the player's name stands over the figure, as over a player in the world: beside each menu on its own. */
+	public boolean menuSkinName = true;
+	public boolean pauseSkinName = true;
+
+	/**
+	 * Whether the figures the mod draws itself (the preview of a skin, the wardrobe, the figures
+	 * beside the menus) have their outer layer in three dimensions where 3D Skin Layers is installed.
+	 * Read on every frame. The player in the world is the other mod's own and is left to it.
+	 */
+	public boolean skinLayersOnFigures = true;
+
+	/**
+	 * The same for Female Gender Mod's breasts on those figures, by its settings: on the girls of the
+	 * catalogue, on "My skins" by the body kept with each, and on the skin worn.
+	 */
+	public boolean genderOnFigures = true;
+
+	/**
+	 * A body for Female Gender Mod set in the menus, or with a skin put on there, waiting for a world,
+	 * where the mod has the player's settings to put it on (compat/GenderMod); null when none waits.
+	 */
+	public JsonObject genderWaiting;
 
 	/** Whether the catalogue has ever been opened; until then a hint names its key on entering a world. */
 	public boolean catalogueOpened;

@@ -5,17 +5,23 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.function.Consumer;
 
+import com.google.gson.JsonObject;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mopicmp.mosaicary.Mosaicary;
+import com.mopicmp.mosaicary.client.compat.GenderMod;
+import com.mopicmp.mosaicary.client.compat.SkinLayers3d;
 import com.mopicmp.mosaicary.client.platform.ClientPlatform;
 import com.mopicmp.mosaicary.client.render.Pictures;
 import com.mopicmp.mosaicary.client.site.ModelCard;
 import com.mopicmp.mosaicary.client.skins.FreshMoves;
 import com.mopicmp.mosaicary.client.skins.SkinCard;
+import com.mopicmp.mosaicary.client.skins.Skins;
 import com.mopicmp.mosaicary.client.ui.MenuSkin;
 import com.mopicmp.mosaicary.client.ui.PauseMenuButton;
 import com.mopicmp.mosaicary.client.ui.ScreenWidgets;
+import com.mopicmp.mosaicary.client.ui.IconButton;
 import com.mopicmp.mosaicary.client.ui.SkinsScreen;
 import com.mopicmp.mosaicary.client.ui.Theme;
 //#if MC>=12111
@@ -24,10 +30,14 @@ import com.mopicmp.mosaicary.client.ui.CatalogueScreen;
 
 import com.mojang.blaze3d.platform.InputConstants;
 
+import net.minecraft.client.CameraType;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.events.ContainerEventHandler;
+import net.minecraft.client.gui.components.events.GuiEventListener;
 //#if MC>=12000
 import net.minecraft.client.gui.screens.AccessibilityOnboardingScreen;
 //#endif
@@ -35,6 +45,7 @@ import net.minecraft.client.gui.screens.ConnectScreen;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.gui.screens.worldselection.SelectWorldScreen;
 //#if MC>=12111
 import net.minecraft.client.input.KeyEvent;
 //#endif
@@ -42,6 +53,9 @@ import net.minecraft.client.multiplayer.ServerData;
 //#if MC>=11700
 import net.minecraft.client.multiplayer.resolver.ServerAddress;
 //#endif
+import net.minecraft.client.resources.language.I18n;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.entity.player.PlayerModelType;
 
 /**
  * A development-only run that photographs the catalogue and quits.
@@ -74,6 +88,13 @@ import net.minecraft.client.multiplayer.resolver.ServerAddress;
  * ({@code wardrobe-server.png}) and waits long enough for the wardrobe to have been sent to
  * the server, where it is kept in the world's {@code mosaicary/wardrobes} folder.
  *
+ * With {@code mosaicary.shotsGender} it makes a new world through the game's own buttons, puts
+ * a grey skin with a checkered jacket front on the player and takes it close up from the front,
+ * with Female Gender Mod's female body and then a flat one, straight on and with the body turned
+ * ({@code gender-*.png}), as the client game test does from 1.21.4 on: for Female Gender Mod
+ * and 3D Skin Layers together (client/compat/GenderBreasts) in the versions before it, with both
+ * given in {@code -PtestMods}. From 1.18.2 on, the first version Female Gender Mod is joined in.
+ *
  * A screenshot is taken only after what it shows has been ready for a number of
  * ticks in a row: the picture read back is the frame drawn before this tick, so a
  * texture uploaded in the same tick would not be in it yet. The mouse is hidden from
@@ -84,7 +105,7 @@ import net.minecraft.client.multiplayer.resolver.ServerAddress;
 final class Shots {
 
 	private enum Step { WAIT_TITLE, SHOOT_TITLE, WAIT_WARDROBE, CARD, SHOOT_CARD, SHOOT_TURN, SHOOT_MINE, SHOOT_SETTINGS, JOIN, WAIT_JOIN, WAIT_GREETING, WAIT_KEY, PAUSE,
-		WAIT_SERVER_WARDROBE, WAIT_SENT, SCALE, WAIT_LIST, SHOOT_GRID, NEXT, OPEN_MODEL, WAIT_MODEL, SHOOT_MODEL, NEXT_FRAME, SHOOT_FRAME, QUIT, DONE }
+		WAIT_SERVER_WARDROBE, WAIT_SENT, GENDER_WORLD, GENDER_WAIT, GENDER_ROUND, SCALE, WAIT_LIST, SHOOT_GRID, NEXT, OPEN_MODEL, WAIT_MODEL, SHOOT_MODEL, NEXT_FRAME, SHOOT_FRAME, QUIT, DONE }
 
 	private static final int SETTLE_TICKS = 20;
 	private static final int LIMIT_TICKS = 20 * 120;
@@ -110,6 +131,16 @@ final class Shots {
 	private final List<String> frames = new ArrayList<>();
 	private String frame = "";
 	private boolean writing;
+	/** The gender round: the screen last seen and the one whose button was pressed, and what is left to do. */
+	private Screen seen;
+	private Screen pressedOn;
+	private boolean flat;
+	private final List<Later> later = new ArrayList<>();
+	/** How far the body is held turned from the head in each tick, past what the game lets it stay at; or 0. */
+	private int turned;
+
+	/** One thing the gender round does, the given number of ticks after the one before. */
+	private record Later(int ticks, Consumer<Minecraft> action) { }
 
 	private Shots(Path folder, MosaicaryClient client) {
 		this.folder = folder;
@@ -171,6 +202,14 @@ final class Shots {
 				//#endif
 				if (minecraft.gui.screen() instanceof TitleScreen && minecraft.gui.overlay() == null && ticks > 40) {
 					started = System.currentTimeMillis();
+					//#if MC>=11802
+					if (Boolean.getBoolean("mosaicary.shotsGender")) {
+						genderLog("its window " + (GenderMod.windowInMenus() ? "opens" : "does not open") + " in the menus");
+						minecraft.gui.setScreen(new SelectWorldScreen(minecraft.gui.screen()));
+						go(Step.GENDER_WORLD);
+						return;
+					}
+					//#endif
 					if (System.getProperty("mosaicary.shotsServer") != null) {
 						go(Step.JOIN);
 						return;
@@ -240,8 +279,8 @@ final class Shots {
 				}
 				if (waited > 11 * SETTLE_TICKS) {
 					if (opened != null) {
-						Mosaicary.LOGGER.info("Screenshot run: card {} with eyes {}; Fresh Moves ready {}; eyes painted {} times in ten seconds",
-							opened.id(), opened.eyes(), FreshMoves.status().ready(), wardrobe.eyesPainted() - paintedBefore);
+						Mosaicary.LOGGER.info("Screenshot run: card {} with eyes {}; Fresh Moves ready {}; eyes painted {} times in ten seconds; 3D Skin Layers on {} of 6 outer parts",
+							opened.id(), opened.eyes(), FreshMoves.status().ready(), wardrobe.eyesPainted() - paintedBefore, SkinLayers3d.hung());
 					}
 					shoot(minecraft, "wardrobe-card-" + label() + ".png");
 					if (turns.isEmpty()) leaveCard();
@@ -271,6 +310,62 @@ final class Shots {
 					go(Step.QUIT);
 				}
 			}
+			//#if MC>=11802
+			case GENDER_WORLD -> {
+				// Through the world list's button and then the new world screen's, each once it has stood a moment.
+				Screen open = minecraft.gui.screen();
+				if (open != seen) {
+					seen = open;
+					stable = 0;
+				}
+				if (minecraft.player != null && open == null) {
+					genderLog("in the new world");
+					go(Step.GENDER_WAIT);
+				} else if (open != null && open != pressedOn && ++stable > SETTLE_TICKS) {
+					// A superflat world, the same around the player wherever it starts and quick to make: on the
+					// new world screen its type is set first, behind a tab from 1.19.3 on and before behind more options.
+					AbstractWidget type = button(open, "selectWorld.mapType", false);
+					AbstractWidget more = button(open, "createWorld.tab.world.title", true);
+					if (more == null) more = button(open, "selectWorld.moreWorldOptions", true);
+					AbstractWidget create = button(open, "selectWorld.create", true);
+					if (!flat && type != null) {
+						// Default, then Superflat.
+						press(open, type);
+						flat = true;
+						stable = 0;
+						genderLog("the world type is " + type.getMessage().getString());
+					} else if (!flat && more != null && open.getClass() != SelectWorldScreen.class) {
+						press(open, more);
+						stable = 0;
+					} else if (create != null) {
+						pressedOn = open;
+						genderLog("pressed " + create.getMessage().getString() + " on " + open.getClass().getSimpleName());
+						press(open, create);
+					}
+				}
+				if (waited > 3 * LIMIT_TICKS) {
+					genderLog("no world, the screen is " + open);
+					go(Step.QUIT);
+				}
+			}
+			case GENDER_WAIT -> {
+				// Long enough for the chunks around to be there.
+				if (waited > 5 * SETTLE_TICKS) {
+					planGenderRound(minecraft);
+					go(Step.GENDER_ROUND);
+				}
+			}
+			case GENDER_ROUND -> {
+				if (turned != 0) turnBody(minecraft, turned);
+				if (later.isEmpty()) {
+					genderLog("done");
+					go(Step.QUIT);
+				} else if (waited >= later.get(0).ticks()) {
+					later.remove(0).action().accept(minecraft);
+					waited = 0;
+				}
+			}
+			//#endif
 			case JOIN -> {
 				String address = System.getProperty("mosaicary.shotsServer");
 				boolean ring = false;
@@ -486,6 +581,233 @@ final class Shots {
 		return new com.mopicmp.mosaicary.client.ui.SettingsScreen(parent);
 		//#endif
 	}
+
+	//#if MC>=11802
+	/** The gender round's shots, as the client game test SkinLayersGenderGameTest takes them. */
+	private void planGenderRound(Minecraft minecraft) {
+		later.add(new Later(0, on -> {
+			on.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+			// An option is an object of its own from 1.19 on, and before a field.
+			//#if MC>=11900
+			on.options.fov().set(30);
+			//#else
+			//$$ on.options.fov = 30;
+			//#endif
+			hideGui(on, true);
+			on.player.setXRot(0);
+			// The outer Minecraft: the preprocessor's patterns do not see the type of a lambda's own parameter.
+			client.skins().showFetched(minecraft.getUser().getProfileId(), "checkered", checkered());
+			genderLog("the checkered skin is on, " + (SkinLayers3d.available() ? "with" : "without") + " 3D Skin Layers");
+		}));
+		// Each shot some ticks after what it shows: drawn by the processor alone, the game may draw a
+		// frame only every few ticks, and a picture is the frame drawn last.
+		for (String gender : new String[] { "female", "male" }) {
+			later.add(new Later(40, on -> putBody(on, gender)));
+			later.add(new Later(20, on -> {
+				if (gender.equals("female")) logGenderJoin(minecraft);
+				shoot(on, "gender-" + gender + "-front.png");
+			}));
+			later.add(new Later(1, on -> turned = 45));
+			later.add(new Later(10, on -> shoot(on, "gender-" + gender + "-turned.png")));
+			later.add(new Later(1, on -> {
+				turned = 0;
+				turnBody(on, 0);
+			}));
+		}
+		// In profile and turned, where the jacket behind the breasts shows; the body held there in each
+		// tick, as the game turns it back to 50 degrees from the head.
+		later.add(new Later(1, on -> putBody(on, "female")));
+		for (int turn : new int[] { 45, 90 }) {
+			later.add(new Later(turn == 45 ? 20 : 1, on -> turned = turn));
+			later.add(new Later(10, on -> shoot(on, "gender-female-turned-" + turn + ".png")));
+		}
+		later.add(new Later(1, on -> {
+			turned = 0;
+			turnBody(on, 0);
+			hideGui(on, false);
+		}));
+		// Female Gender Mod's body, set in a skin's card through the button beside the catalogue's
+		// girls; and from there the mod's own window.
+		later.add(new Later(10, Shots::openGirls));
+		later.add(new Later(60, Shots::pressGender));
+		later.add(new Later(40, on -> shootBody(on)));
+		later.add(new Later(1, Shots::pressGenderWindow));
+		later.add(new Later(20, on -> shootGenderWindow(on)));
+		later.add(new Later(1, Shots::closeGenderWindow));
+		// The breasts on the preview of a girl of the catalogue, by the body on now.
+		later.add(new Later(10, Shots::openGirls));
+		later.add(new Later(60, Shots::openFirstGirl));
+		later.add(new Later(40, on -> previewTurned(on, 45)));
+		later.add(new Later(10, on -> shoot(on, "gender-preview-45.png")));
+		later.add(new Later(1, on -> previewTurned(on, 90)));
+		later.add(new Later(10, on -> shoot(on, "gender-preview-90.png")));
+		later.add(new Later(1, Shots::closeGenderWindow));
+	}
+
+	private static void openFirstGirl(Minecraft minecraft) {
+		Screen open = minecraft.gui.screen();
+		Skins.Shelf shelf = MosaicaryClient.instance().skins().shelf(SkinsScreen.query());
+		if (open instanceof SkinsScreen screen && !shelf.cards.isEmpty()) {
+			screen.openCard(shelf.cards.get(0));
+			genderLog("the preview of " + shelf.cards.get(0).name());
+		} else {
+			genderLog("no girl of the catalogue to preview");
+		}
+	}
+
+	private static void previewTurned(Minecraft minecraft, float degrees) {
+		if (minecraft.gui.screen() instanceof SkinsScreen screen) screen.setView(-8, degrees);
+	}
+
+	private static void openGirls(Minecraft minecraft) {
+		SkinsScreen.query(SkinsScreen.query().withCategory("girls"));
+		minecraft.gui.setScreen(new SkinsScreen(null, MosaicaryClient.instance().skins()));
+	}
+
+	private static void pressGender(Minecraft minecraft) {
+		Screen open = minecraft.gui.screen();
+		IconButton button = open instanceof SkinsScreen screen ? screen.genderButton() : null;
+		genderLog("the button to the body's panel " + (button == null ? "is not there" : button.active ? "is live" : "is greyed out"));
+		if (button != null) button.press();
+	}
+
+	private void shootBody(Minecraft minecraft) {
+		Screen open = minecraft.gui.screen();
+		genderLog("the body's panel " + (open instanceof SkinsScreen screen && screen.bodyOpen() ? "is open" : "is not open"));
+		shoot(minecraft, "gender-body.png");
+	}
+
+	/** The panel's button to the mod's own window, found by its name as a player finds it. */
+	private static void pressGenderWindow(Minecraft minecraft) {
+		Screen open = minecraft.gui.screen();
+		String name = I18n.get("mosaicary.body.window");
+		AbstractWidget button = null;
+		if (open instanceof SkinsScreen) {
+			for (Object child : open.children()) {
+				if (child instanceof AbstractWidget widget && widget.getMessage().getString().equals(name)) button = widget;
+			}
+		}
+		genderLog("the panel's button to its window " + (button == null ? "is not there" : button.active ? "is live" : "is greyed out"));
+		if (button != null) press(open, button);
+	}
+
+	private void shootGenderWindow(Minecraft minecraft) {
+		Screen open = minecraft.gui.screen();
+		genderLog("its window: " + (open == null ? "none" : open.getClass().getName()));
+		shoot(minecraft, "gender-window.png");
+	}
+
+	private static void closeGenderWindow(Minecraft minecraft) {
+		// Through its own close button where it has one (up to 1.21.1 a small X, which goes to the
+		// screen it was opened from), else as Escape does.
+		Screen open = minecraft.gui.screen();
+		AbstractWidget cross = null;
+		if (open != null) {
+			for (Object child : open.children()) {
+				if (child instanceof AbstractWidget widget && widget.getMessage().getString().equals("X")) cross = widget;
+			}
+		}
+		if (cross != null) press(open, cross);
+		else if (open != null && !(open instanceof SkinsScreen)) open.onClose();
+		Screen back = minecraft.gui.screen();
+		genderLog("closed " + (cross != null ? "with its X" : "as with Escape") + " back to " + (back == null ? "the world" : back.getClass().getSimpleName()));
+		minecraft.gui.setScreen(null);
+		SkinsScreen.query(SkinsScreen.query().withCategory("any"));
+	}
+
+	/** What joining in Female Gender Mod's drawing has to go on, for the log. */
+	private static void logGenderJoin(Minecraft minecraft) {
+		boolean joined = false;
+		for (String layer : new String[] { "com.wildfire.client.render.GenderLayer", "com.wildfire.render.GenderLayer" }) {
+			try {
+				for (java.lang.reflect.Method method : Class.forName(layer).getDeclaredMethods()) joined |= method.getName().contains("mosaicary$");
+			} catch (ClassNotFoundException | LinkageError absent) {
+				// The other line's name.
+			}
+		}
+		genderLog("the outer layer's mixin is " + (joined ? "in" : "not in") + " Female Gender Mod's layer");
+		Identifier built = SkinLayers3d.builtSkin(minecraft.player);
+		genderLog("3D Skin Layers keeps " + (SkinLayers3d.torso(minecraft.player) != null ? "a" : "no") + " jacket on the player, built from "
+			+ built + (built == null ? "" : SkinLayers3d.skin(built) != null ? ", whose pixels it reads" : ", whose pixels it does not read"));
+	}
+
+	private static void putBody(Minecraft minecraft, String gender) {
+		JsonObject body = new JsonObject();
+		body.addProperty("gender", gender);
+		body.addProperty("bust_size", 0.8);
+		body.addProperty("breast_physics", false);
+		genderLog("the " + gender + " body " + (GenderMod.put(minecraft.getUser().getProfileId(), body) ? "is on" : "was not taken"));
+	}
+
+	/** The body turned from where the head looks, the head left as it is. */
+	private static void turnBody(Minecraft minecraft, int degrees) {
+		minecraft.player.setYBodyRot(minecraft.player.getYRot() - degrees);
+		minecraft.player.yBodyRotO = minecraft.player.yBodyRot;
+	}
+
+	/** Hides the game's own interface, as F1 does, or shows it again. */
+	private static void hideGui(Minecraft minecraft, boolean hidden) {
+		//#if MC>=260100
+		if (minecraft.gui.hud.isHidden() != hidden) minecraft.gui.hud.toggle();
+		//#else
+		//$$ minecraft.options.hideGui = hidden;
+		//#endif
+	}
+
+	/**
+	 * The screen's shown button or tab whose label is the game's text for a key, or (with {@code whole}
+	 * false) starts with it.
+	 */
+	private static AbstractWidget button(ContainerEventHandler in, String key, boolean whole) {
+		String text = I18n.get(key);
+		for (GuiEventListener child : in.children()) {
+			if (child instanceof AbstractWidget widget && widget.visible && widget.active) {
+				String label = widget.getMessage().getString();
+				if (whole ? label.equals(text) : label.startsWith(text)) return widget;
+			} else if (child instanceof ContainerEventHandler inner) {
+				// The tabs of the new world screen, on their bar.
+				AbstractWidget found = button(inner, key, whole);
+				if (found != null) return found;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Presses a button, or picks a tab, with a click of the screen at its middle: a tab is picked by
+	 * the bar it is on, which takes the click from the screen.
+	 */
+	private static void press(Screen screen, AbstractWidget widget) {
+		//#if MC>=12111
+		if (widget instanceof AbstractButton button) button.onPress(new KeyEvent(InputConstants.KEY_RETURN, 0, 0));
+		//#else
+		//$$ double x = widget.getX() + widget.getWidth() / 2.0;
+		//$$ double y = widget.getY() + widget.getHeight() / 2.0;
+		//$$ screen.mouseClicked(x, y, InputConstants.MOUSE_BUTTON_LEFT);
+		//$$ screen.mouseReleased(x, y, InputConstants.MOUSE_BUTTON_LEFT);
+		//#endif
+	}
+
+	/** Grey, with the front of the jacket's outer layer checkered in two bright colours and the rest of the outer layer empty. */
+	private static Skins.Texture checkered() {
+		int[] pixels = new int[64 * 64];
+		for (int y = 0; y < 64; y++) {
+			for (int x = 0; x < 64; x++) {
+				boolean outer = (y < 16 && x >= 32) || (y >= 32 && y < 48 && x < 56) || (y >= 48 && (x < 16 || x >= 48));
+				pixels[y * 64 + x] = outer ? 0 : 0xFF808080;
+			}
+		}
+		// The jacket's front: 8 by 12 from (20, 36).
+		for (int y = 36; y < 48; y++) {
+			for (int x = 20; x < 28; x++) pixels[y * 64 + x] = ((x + y) & 1) == 0 ? 0xFF00E0FF : 0xFFFF00E0;
+		}
+		return new Skins.Texture(Skins.State.READY, null, PlayerModelType.WIDE, pixels, null);
+	}
+
+	private static void genderLog(String line) {
+		Mosaicary.LOGGER.info("Gender run: {}", line);
+	}
+	//#endif
 
 	private static void serverLog(String line) {
 		Mosaicary.LOGGER.info("Server run: {}", line);

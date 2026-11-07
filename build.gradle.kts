@@ -1,4 +1,5 @@
 import java.io.FileOutputStream
+import java.util.zip.ZipFile
 
 import net.fabricmc.loom.configuration.ide.RunConfigSettings
 
@@ -14,6 +15,9 @@ plugins {
 // the preprocessor from the patterns in client/platform/ClientPatterns.
 preprocess {
 	patternAnnotation.set("com.mopicmp.mosaicary.client.platform.Pattern")
+	// GENDER: whether the project is compiled against a line of Female Gender Mod (see the
+	// dependencies below), so that only there the code joining in its drawing names its classes.
+	vars.put("GENDER", if (findProperty("gender_mod_version") != null) 1 else 0)
 }
 
 val modVersion = property("mod_version").toString()
@@ -67,6 +71,8 @@ repositories {
 	mavenCentral()
 	// Mod Menu, for its "Configure" button (client/compat/ModMenuEntry); compiled against only.
 	maven("https://maven.terraformersmc.com/releases/")
+	// Female Gender Mod, from Modrinth's own Maven (client/mixin/GenderLayerMixin); compiled against only.
+	maven("https://api.modrinth.com/maven") { content { includeGroup("maven.modrinth") } }
 }
 
 // Two source sets on Fabric.
@@ -190,10 +196,14 @@ loom {
 			// from Blockbench's opening angle. Those are for the model catalogue's round, `-PshotsModels=true`;
 			// without it the run photographs the title screen and the skin wardrobe, and with
 			// `-PshotsServer=host:port` goes through the wardrobe on a server (client/Shots);
-			// `-PshotsTurns=30,90,0@-50` also takes the opened skin's figure turned (and after @ tilted) by those degrees.
-			for (name in listOf("shotsScales", "shotsModel", "shotsFrames", "shotsView", "shotsModels", "shotsServer", "shotsSearch", "shotsTurns")) {
+			// `-PshotsTurns=30,90,0@-50` also takes the opened skin's figure turned (and after @ tilted) by those degrees;
+			// `-PshotsGender=true` makes a world and takes Female Gender Mod's body there instead (client/Shots).
+			for (name in listOf("shotsScales", "shotsModel", "shotsFrames", "shotsView", "shotsModels", "shotsServer", "shotsSearch", "shotsTurns",
+					"shotsGender")) {
 				findProperty(name)?.let { vmArg("-Dmosaicary.$name=$it") }
 			}
+			// Other mods for the round, as for the game test: a folder of jars, read by Fabric Loader.
+			findProperty("testMods")?.let { vmArg("-Dfabric.addMods=$it") }
 		}
 	}
 }
@@ -262,6 +272,32 @@ dependencies {
 		if (platform.isUnobfuscated) "clientCompileOnly"(modMenu) else if (splitSources) "modClientCompileOnly"(modMenu) else "modCompileOnly"(modMenu)
 	}
 
+	// Female Gender Mod, whose drawing of the breasts the client joins in when it is there
+	// (client/mixin/GenderLayerMixin). Each line of it draws them its own way, so a project names
+	// the version it is compiled against in its gradle.properties; one without names none, and its
+	// jar knows nothing of the mod. Not shipped and not required.
+	findProperty("gender_mod_version")?.let { gender ->
+		val genderMod = "maven.modrinth:female-gender:$gender"
+		val configuration = if (platform.isUnobfuscated) "clientCompileOnly" else if (splitSources) "modClientCompileOnly" else "modCompileOnly"
+		add(configuration, genderMod) { (this as ExternalModuleDependency).isTransitive = false }
+	}
+	// Other mods for the runs only, from Modrinth by project and version id or as jar files
+	// (`-PrunMods=female-gender:R1d8TWqL,/path/TRender.jar`), turned to the names the game runs with
+	// here. For Forge and NeoForge, whose loaders read no folder of jars as Fabric Loader does for
+	// `-PtestMods`, and where a released Forge jar has names of its own. Jars nested in a mod are
+	// not taken out of it here, so they are given as files of their own; one that is no mod (no
+	// mods.toml) is a library, which Forge loads only from its own configuration.
+	findProperty("runMods")?.toString()?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() }?.forEach { mod ->
+		val configuration = if (platform.isUnobfuscated) "runtimeOnly" else "modLocalRuntime"
+		if (!mod.endsWith(".jar")) {
+			add(configuration, "maven.modrinth:$mod") { (this as ExternalModuleDependency).isTransitive = false }
+		} else if (platform.isForge && ZipFile(mod).use { it.getEntry("META-INF/mods.toml") == null }) {
+			add("forgeRuntimeLibrary", files(mod))
+		} else {
+			add(configuration, files(mod))
+		}
+	}
+
 	// A WebP decoder, for the preview pictures the site serves.
 	//
 	// The site stores every card picture as WebP, and the game's own decoder (stb_image) reads
@@ -300,9 +336,11 @@ dependencies {
 }
 
 // TwelveMonkeys is under the BSD licence, which wants its notice in every copy handed out in binary
-// form, and its jars carry none, so the jar carries it.
+// form, and its jars carry none, so the jar carries it. The mod's own licence goes with it: the
+// LGPL wants its text, and the GPL's it builds on, in every copy.
 tasks.jar {
 	from(rootProject.file("licenses/twelvemonkeys")) { into("META-INF/licenses/twelvemonkeys") }
+	from(files(rootProject.file("LICENSE"), rootProject.file("COPYING"), rootProject.file("COPYING.LESSER"))) { into("META-INF/licenses/mosaicary") }
 }
 
 if (!nestsJars) {
@@ -435,6 +473,9 @@ tasks.named { it == "runClientGameTest" }.configureEach {
 	findProperty("testMods")?.let { jvmArgs("-Dfabric.addMods=$it") }
 	findProperty("testPacks")?.let { jvmArgs("-Dmosaicary.testPacks=$it") }
 	findProperty("testSearch")?.let { jvmArgs("-Dmosaicary.testSearch=$it") }
-	if (project.hasProperty("testLanguages")) jvmArgs("-Dmosaicary.testLanguages=true")
+	findProperty("testSkin")?.let { jvmArgs("-Dmosaicary.testSkin=$it") }
+	// All the languages, or only those named: -PtestLanguages=fr_fr,pl_pl.
+	if (project.hasProperty("testLanguages")) jvmArgs("-Dmosaicary.testLanguages=${findProperty("testLanguages").toString().ifBlank { "true" }}")
+	findProperty("testOnly")?.let { jvmArgs("-Dmosaicary.testOnly=$it") }
 	findProperty("testSite")?.let { jvmArgs("-Dmosaicary.testSite=$it", "-Dmosaicary.testSiteKey=${property("testSiteKey")}") }
 }

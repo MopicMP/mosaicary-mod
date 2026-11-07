@@ -1,41 +1,42 @@
 Mosaicary
 
-Copyright (c) 2026 MopicMP. All rights reserved, except as stated below.
+Copyright (c) 2026 MopicMP.
 
-The source code is public so that it can be read and checked. Publishing it here
-does not make it free or open source software.
+This program is free software: you can redistribute it and/or modify it under the
+terms of the GNU Lesser General Public License as published by the Free Software
+Foundation, version 3 only (SPDX: LGPL-3.0-only).
 
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU Lesser General Public License for more details.
 
-1. WHAT YOU MAY DO
+The GNU Lesser General Public License is in COPYING.LESSER, and the GNU General
+Public License it builds on is in COPYING. Both ship in the mod's jar.
 
-  (a) Read the source code.
-
-  (b) Build the mod from the source code and run it yourself, changed or not, for
-      your own personal use.
-
-  (c) Prepare changes to offer back to this project through its repository.
-
-  (d) Use the mod as released by the author on your own computer and show it in
-      videos, streams and screenshots.
-
-  (e) Point to the author's own download pages on CurseForge and Modrinth, for
-      example from a modpack that fetches the mod from those pages. That is not
-      redistribution, as long as the file itself is not copied into the pack.
+Versions released before this notice (1.0.0 to 1.0.3) were published under "All
+Rights Reserved"; this licence covers the code from here on.
 
 
-2. WHAT YOU MAY NOT DO WITHOUT WRITTEN PERMISSION
+THE NAME AND THE ICON
 
-  (a) Publish, upload, sell or otherwise redistribute the mod or its source code,
-      changed or not, on CurseForge, Modrinth or anywhere else.
-
-  (b) Publish a project made from this one, or a part of it, under any name.
-
-  (c) Use the name Mosaicary or its icon for another project.
+The licence covers the code, not the name. "Mosaicary" and the mod's icon are not
+licensed for other projects: a changed version published by someone else must have
+a name and an icon of its own, and must not present itself as the author's.
 
 
-3. WHAT IS NOT COVERED
+PARTS ADAPTED FROM OTHER PROJECTS
 
-The jar includes TwelveMonkeys ImageIO, which stays under its own BSD licence.
+Where Female Gender Mod's breasts sit on the mod's own figures and how they bounce is
+adapted from Female Gender Mod (WildfireRomeo, celeste, pupnewfster and its
+contributors, https://github.com/FemaleGenderMod/FemaleGenderMod), version 5.0.0,
+under the GNU LGPL 3.0: src/client/java/com/mopicmp/mosaicary/client/compat/GenderFigure.java.
+
+
+WHAT IS NOT COVERED
+
+The jar includes TwelveMonkeys ImageIO, which stays under its own BSD licence
+(licenses/twelvemonkeys). The jars for Java 8 include classes from JvmDowngrader,
+under the LGPL 2.1 (licenses/jvmdowngrader).
 
 The interface icons are Lucide, under the ISC licence; its notice is in
 src/client/resources/assets/mosaicary/textures/gui/icons.txt and ships in the jar.
@@ -51,16 +52,6 @@ Minecraft is a trademark of Mojang. This project is not an official Minecraft
 product and is not approved by or associated with Mojang or Microsoft.
 
 
-4. NO WARRANTY
+CONTACT
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHOR BE
-LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
-CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-
-5. CONTACT
-
-For permission or questions: contact@mosaicary.com
+For questions: contact@mosaicary.com
